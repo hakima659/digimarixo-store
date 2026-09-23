@@ -977,7 +977,7 @@ function basePage(
 
 <meta
   name="theme-color"
-  content="#6d5dfc"
+  content="#0f172a"
 >
 
 <meta
@@ -1007,15 +1007,15 @@ body{
   background:
     radial-gradient(
       circle at top right,
-      rgba(124,92,255,.18),
+      rgba(37,99,235,.12),
       transparent 35%
     ),
     radial-gradient(
       circle at bottom left,
-      rgba(255,82,151,.13),
+      rgba(20,184,166,.10),
       transparent 35%
     ),
-    #f6f8ff;
+    #f4f7fb;
 
   min-height:100vh;
 }
@@ -1052,7 +1052,7 @@ header{
   z-index:50;
 
   background:
-    rgba(255,255,255,.82);
+    rgba(255,255,255,.88);
 
   backdrop-filter:
     blur(18px);
@@ -1061,7 +1061,7 @@ header{
     blur(18px);
 
   border-bottom:
-    1px solid rgba(110,93,252,.12);
+    1px solid #e2e8f0;
 }
 
 .nav{
@@ -1099,14 +1099,13 @@ header{
   background:
     linear-gradient(
       135deg,
-      #6d5dfc,
-      #8b5cf6,
-      #ec4899
+      #0f172a,
+      #1e3a8a
     );
 
   box-shadow:
     0 10px 25px
-    rgba(109,93,252,.28);
+    rgba(15,23,42,.25);
 }
 
 .brand-title{
@@ -1116,7 +1115,7 @@ header{
 .brand-en{
   display:block;
 
-  color:#7b8192;
+  color:#64748b;
 
   font-size:11px;
   margin-top:3px;
@@ -1138,7 +1137,7 @@ header{
 
   border-radius:12px;
 
-  color:#4a5265;
+  color:#475569;
 
   font-size:14px;
 
@@ -1152,8 +1151,8 @@ header{
   background:
     linear-gradient(
       135deg,
-      #6d5dfc,
-      #ec4899
+      #0f172a,
+      #1e3a8a
     );
 
   transform:translateY(-1px);
@@ -1184,15 +1183,14 @@ main{
   background:
     linear-gradient(
       135deg,
-      #5146d9 0%,
-      #6d5dfc 42%,
-      #b64fc8 72%,
-      #ec4899 100%
+      #0f172a 0%,
+      #1e3a8a 52%,
+      #0f766e 100%
     );
 
   box-shadow:
     0 25px 70px
-    rgba(82,68,200,.25);
+    rgba(15,23,42,.25);
 
   margin-bottom:32px;
 }
@@ -1208,7 +1206,7 @@ main{
   border-radius:50%;
 
   background:
-    rgba(255,255,255,.12);
+    rgba(20,184,166,.18);
 
   top:-100px;
   left:-70px;
@@ -1225,7 +1223,7 @@ main{
   border-radius:50%;
 
   background:
-    rgba(255,255,255,.10);
+    rgba(37,99,235,.18);
 
   bottom:-100px;
   right:-50px;
@@ -1245,7 +1243,7 @@ main{
   border-radius:999px;
 
   background:
-    rgba(255,255,255,.16);
+    rgba(20,184,166,.18);
 
   border:
     1px solid
@@ -1309,7 +1307,7 @@ main{
 
   box-shadow:
     0 12px 25px
-    rgba(0,0,0,.12);
+    rgba(15,23,42,.14);
 }
 
 .btn-primary{
@@ -1318,13 +1316,13 @@ main{
   background:
     linear-gradient(
       135deg,
-      #6d5dfc,
-      #ec4899
+      #0f766e,
+      #14b8a6
     );
 }
 
 .btn-white{
-  color:#5b4bd8;
+  color:#0f172a;
 
   background:white;
 }
@@ -1335,8 +1333,8 @@ main{
   background:
     linear-gradient(
       135deg,
-      #ef4444,
-      #dc2626
+      #dc2626,
+      #ef4444
     );
 }
 
@@ -1346,8 +1344,8 @@ main{
   background:
     linear-gradient(
       135deg,
-      #10b981,
-      #059669
+      #0f766e,
+      #14b8a6
     );
 }
 
@@ -1388,7 +1386,7 @@ main{
 .section-title p{
   margin:0;
 
-  color:#818899;
+  color:#64748b;
 
   font-size:13px;
 }
@@ -1413,15 +1411,14 @@ main{
   border-radius:22px;
 
   background:
-    rgba(255,255,255,.8);
+    rgba(255,255,255,.9);
 
   border:
-    1px solid
-    rgba(109,93,252,.1);
+    1px solid #e2e8f0;
 
   box-shadow:
     0 10px 35px
-    rgba(28,35,70,.07);
+    rgba(15,23,42,.07);
 
   transition:.2s ease;
 }
@@ -1432,7 +1429,7 @@ main{
 
   box-shadow:
     0 18px 45px
-    rgba(28,35,70,.11);
+    rgba(15,23,42,.11);
 }
 
 .feature-icon{
@@ -1453,8 +1450,8 @@ main{
   background:
     linear-gradient(
       135deg,
-      #6d5dfc,
-      #ec4899
+      #0f172a,
+      #1e3a8a
     );
 }
 
@@ -1462,8 +1459,8 @@ main{
   background:
     linear-gradient(
       135deg,
-      #06b6d4,
-      #3b82f6
+      #2563eb,
+      #06b6d4
     );
 }
 
@@ -1471,8 +1468,8 @@ main{
   background:
     linear-gradient(
       135deg,
-      #f59e0b,
-      #ef4444
+      #f97316,
+      #fb923c
     );
 }
 
@@ -1484,7 +1481,7 @@ main{
 .feature p{
   margin:0;
 
-  color:#777f91;
+  color:#64748b;
 
   line-height:1.9;
 
@@ -1513,12 +1510,11 @@ main{
   background:white;
 
   border:
-    1px solid
-    rgba(109,93,252,.1);
+    1px solid #e2e8f0;
 
   box-shadow:
     0 12px 38px
-    rgba(25,30,60,.08);
+    rgba(15,23,42,.08);
 
   transition:
     .25s ease;
@@ -1530,7 +1526,7 @@ main{
 
   box-shadow:
     0 22px 50px
-    rgba(25,30,60,.13);
+    rgba(15,23,42,.13);
 }
 
 .product-top{
@@ -1546,8 +1542,8 @@ main{
   background:
     linear-gradient(
       135deg,
-      #6d5dfc,
-      #ec4899
+      #0f172a,
+      #1e3a8a
     );
 }
 
@@ -1555,8 +1551,8 @@ main{
   background:
     linear-gradient(
       135deg,
-      #06b6d4,
-      #3b82f6
+      #2563eb,
+      #06b6d4
     );
 }
 
@@ -1564,8 +1560,8 @@ main{
   background:
     linear-gradient(
       135deg,
-      #f59e0b,
-      #ef4444
+      #f97316,
+      #fb923c
     );
 }
 
@@ -1581,7 +1577,7 @@ main{
 }
 
 .product p{
-  color:#777f91;
+  color:#64748b;
 
   line-height:1.8;
 
@@ -1591,7 +1587,7 @@ main{
 }
 
 .price{
-  color:#5b4bd8;
+  color:#ea580c;
 
   font-size:20px;
 
@@ -1614,12 +1610,11 @@ main{
   padding:24px;
 
   border:
-    1px solid
-    rgba(109,93,252,.1);
+    1px solid #e2e8f0;
 
   box-shadow:
     0 12px 40px
-    rgba(25,30,60,.07);
+    rgba(15,23,42,.07);
 
   margin-bottom:20px;
 }
@@ -1642,7 +1637,7 @@ label{
 
   font-weight:700;
 
-  color:#4b5365;
+  color:#475569;
 }
 
 input,
@@ -1651,14 +1646,14 @@ select{
   width:100%;
 
   border:
-    1px solid #e2e5ef;
+    1px solid #dbe2ea;
 
   border-radius:13px;
 
   padding:
     13px 14px;
 
-  background:#fafbff;
+  background:#f8fafc;
 
   color:#172033;
 
@@ -1670,11 +1665,11 @@ select{
 input:focus,
 textarea:focus,
 select:focus{
-  border-color:#6d5dfc;
+  border-color:#14b8a6;
 
   box-shadow:
     0 0 0 4px
-    rgba(109,93,252,.10);
+    rgba(20,184,166,.12);
 
   background:white;
 }
@@ -1707,7 +1702,7 @@ td{
   padding:13px;
 
   border-bottom:
-    1px solid #edf0f6;
+    1px solid #e8edf3;
 
   text-align:right;
 
@@ -1715,9 +1710,9 @@ td{
 }
 
 th{
-  color:#5b4bd8;
+  color:#0f766e;
 
-  background:#f7f6ff;
+  background:#ecfeff;
 }
 
 
@@ -1739,9 +1734,9 @@ th{
 
   font-weight:800;
 
-  background:#f1efff;
+  background:#ecfeff;
 
-  color:#5b4bd8;
+  color:#0f766e;
 }
 
 
@@ -1776,13 +1771,14 @@ th{
   background:
     linear-gradient(
       135deg,
-      #6d5dfc,
-      #ec4899
+      #0f172a,
+      #1e3a8a 55%,
+      #0f766e
     );
 
   box-shadow:
     0 25px 60px
-    rgba(109,93,252,.2);
+    rgba(15,23,42,.2);
 }
 
 .product-detail-info{
@@ -1794,7 +1790,7 @@ th{
 
   box-shadow:
     0 15px 45px
-    rgba(25,30,60,.08);
+    rgba(15,23,42,.08);
 }
 
 .product-detail-info h1{
@@ -1804,7 +1800,7 @@ th{
 }
 
 .description{
-  color:#737b8c;
+  color:#64748b;
 
   line-height:2;
 
@@ -1825,11 +1821,11 @@ th{
 
   background:white;
 
-  color:#7d8596;
+  color:#64748b;
 
   box-shadow:
     0 10px 35px
-    rgba(25,30,60,.06);
+    rgba(15,23,42,.06);
 }
 
 
@@ -1842,9 +1838,9 @@ th{
 
   border-radius:14px;
 
-  background:#f3f1ff;
+  background:#ecfeff;
 
-  color:#5547c9;
+  color:#0f766e;
 
   margin-bottom:16px;
 
@@ -1861,13 +1857,12 @@ footer{
     30px 0;
 
   border-top:
-    1px solid
-    rgba(109,93,252,.1);
+    1px solid #e2e8f0;
 
   background:
-    rgba(255,255,255,.7);
+    rgba(255,255,255,.8);
 
-  color:#7c8494;
+  color:#64748b;
 
   text-align:center;
 
@@ -2504,7 +2499,7 @@ function accountPage() {
               margin:30px 0;
               border:0;
               border-top:
-              1px solid #eee;
+              1px solid #e2e8f0;
             "
           >
 
@@ -2820,7 +2815,7 @@ function accountPage() {
           style="
             border:0;
             border-top:
-            1px solid #eee;
+            1px solid #e2e8f0;
             margin:25px 0;
           "
         >
@@ -3719,7 +3714,7 @@ function notFoundPage() {
 
       <p
         style="
-          color:#777f91;
+          color:#64748b;
           line-height:2;
         "
       >
@@ -3738,4 +3733,4 @@ function notFoundPage() {
 
     `
   );
-}
+             }
