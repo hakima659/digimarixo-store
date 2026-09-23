@@ -94,7 +94,8 @@ export default {
         {
           status: 500,
           headers: {
-            "content-type": "text/plain; charset=UTF-8"
+            "content-type": "text/plain; charset=UTF-8",
+            "cache-control": "no-store"
           }
         }
       );
@@ -253,13 +254,21 @@ async function seedProducts(env) {
     await env.DB
       .prepare(`
         INSERT INTO products
-        (name, description, price, image, category, stock, active)
+        (
+          name,
+          description,
+          price,
+          image,
+          category,
+          stock,
+          active
+        )
         VALUES (?, ?, ?, ?, ?, ?, 1)
       `)
       .bind(
         product.name,
         product.description,
-        product.price,
+        normalizePrice(product.price),
         "",
         product.category,
         product.stock
@@ -292,7 +301,8 @@ async function getProducts(env) {
 
   const products = (result.results || []).map(product => ({
     ...product,
-    price: normalizePrice(product.price)
+    price: normalizePrice(product.price),
+    stock: normalizeStock(product.stock)
   }));
 
   return {
@@ -329,6 +339,7 @@ async function getProduct(env, id) {
   }
 
   product.price = normalizePrice(product.price);
+  product.stock = normalizeStock(product.stock);
 
   return {
     ok: true,
@@ -399,9 +410,9 @@ async function createOrder(request, env) {
       Number(item.product_id ?? item.id);
 
     const quantity =
-      Math.max(1, Number(item.quantity || 1));
+      Math.max(1, Math.floor(Number(item.quantity || 1)));
 
-    if (!Number.isFinite(productId)) {
+    if (!Number.isFinite(productId) || productId <= 0) {
       return json(
         {
           ok: false,
@@ -412,7 +423,11 @@ async function createOrder(request, env) {
     }
 
     const product = await env.DB.prepare(`
-      SELECT id, price, stock, active
+      SELECT
+        id,
+        price,
+        stock,
+        active
       FROM products
       WHERE id = ?
       LIMIT 1
@@ -430,7 +445,10 @@ async function createOrder(request, env) {
       );
     }
 
-    if (Number(product.stock) < quantity) {
+    const stock =
+      normalizeStock(product.stock);
+
+    if (stock < quantity) {
       return json(
         {
           ok: false,
@@ -440,7 +458,8 @@ async function createOrder(request, env) {
       );
     }
 
-    const price = normalizePrice(product.price);
+    const price =
+      normalizePrice(product.price);
 
     total += price * quantity;
 
@@ -473,7 +492,8 @@ async function createOrder(request, env) {
     )
     .run();
 
-  const orderId = order.meta.last_row_id;
+  const orderId =
+    order.meta.last_row_id;
 
   for (const item of orderItems) {
     await env.DB.prepare(`
@@ -572,7 +592,6 @@ async function homePage(env) {
       </div>
     </section>
 
-
     <section class="section">
 
       <div class="section-head">
@@ -591,7 +610,6 @@ async function homePage(env) {
       </div>
 
     </section>
-
 
     <section class="features" id="features">
 
@@ -628,7 +646,6 @@ async function homePage(env) {
       </div>
 
     </section>
-
 
     <section class="promo">
 
@@ -719,8 +736,11 @@ function productDetailPage(product) {
       </div>
     `;
 
-  const stock = Number(product.stock || 0);
-  const price = normalizePrice(product.price);
+  const stock =
+    normalizeStock(product.stock);
+
+  const price =
+    normalizePrice(product.price);
 
   return `
     <section class="product-detail">
@@ -763,11 +783,7 @@ function productDetailPage(product) {
             ? `
               <button
                 class="btn orange"
-                onclick="addToCart(
-                  ${Number(product.id)},
-                  '${escapeJS(product.name || "محصول")}',
-                  ${price}
-                )"
+                onclick="addToCart(${Number(product.id)}, '${escapeJS(product.name || "محصول")}', ${price})"
               >
                 افزودن به سبد خرید
               </button>
@@ -801,7 +817,8 @@ function productDetailPage(product) {
 ========================================================= */
 
 function productCard(product) {
-  const id = Number(product.id || 0);
+  const id =
+    Number(product.id || 0);
 
   const name =
     escapeHTML(product.name || "محصول");
@@ -816,7 +833,7 @@ function productCard(product) {
     normalizePrice(product.price);
 
   const stock =
-    Number(product.stock || 0);
+    normalizeStock(product.stock);
 
   const image = product.image
     ? `
@@ -884,11 +901,7 @@ function productCard(product) {
               ? `
                 <button
                   class="btn small orange"
-                  onclick="addToCart(
-                    ${id},
-                    '${escapeJS(product.name || "محصول")}',
-                    ${price}
-                  )"
+                  onclick="addToCart(${id}, '${escapeJS(product.name || "محصول")}', ${price})"
                 >
                   افزودن به سبد
                 </button>
@@ -929,9 +942,7 @@ function accountPage() {
           مدیریت حساب و سفارش‌های دیجی‌ماریکسو
         </p>
 
-        <form
-          onsubmit="return false;"
-        >
+        <form onsubmit="return false;">
 
           <label>
             نام کاربری یا ایمیل
@@ -964,6 +975,7 @@ function accountPage() {
         </form>
 
         <div class="account-links">
+
           <a href="#register">
             ثبت‌نام
           </a>
@@ -971,10 +983,10 @@ function accountPage() {
           <a href="/">
             بازگشت به فروشگاه
           </a>
+
         </div>
 
       </div>
-
 
       <div
         class="account-card register"
@@ -985,9 +997,7 @@ function accountPage() {
           ایجاد حساب
         </h2>
 
-        <form
-          onsubmit="return false;"
-        >
+        <form onsubmit="return false;">
 
           <label>
             نام کاربری
@@ -1197,9 +1207,7 @@ function layout(title, content) {
     content="#0f172a"
   >
 
-  <title>
-    ${escapeHTML(title)} | ${STORE_NAME}
-  </title>
+  <title>${escapeHTML(title)} | ${STORE_NAME}</title>
 
   <style>
 
@@ -1213,10 +1221,7 @@ function layout(title, content) {
 
     body {
       margin: 0;
-      font-family:
-        Tahoma,
-        Arial,
-        sans-serif;
+      font-family: Tahoma, Arial, sans-serif;
       background: #f4f7fb;
       color: #172033;
       line-height: 1.8;
@@ -1233,10 +1238,7 @@ function layout(title, content) {
     }
 
     .container {
-      width: min(
-        1180px,
-        calc(100% - 32px)
-      );
+      width: min(1180px, calc(100% - 32px));
       margin: auto;
     }
 
@@ -1245,8 +1247,7 @@ function layout(title, content) {
       top: 0;
       z-index: 50;
       background: rgba(15, 23, 42, .96);
-      border-bottom:
-        1px solid rgba(255,255,255,.08);
+      border-bottom: 1px solid rgba(255,255,255,.08);
       backdrop-filter: blur(12px);
     }
 
@@ -1274,16 +1275,9 @@ function layout(title, content) {
       border-radius: 13px;
       display: grid;
       place-items: center;
-      background:
-        linear-gradient(
-          135deg,
-          #2563eb,
-          #14b8a6
-        );
+      background: linear-gradient(135deg, #2563eb, #14b8a6);
       color: white;
-      box-shadow:
-        0 8px 25px
-        rgba(20,184,166,.25);
+      box-shadow: 0 8px 25px rgba(20,184,166,.25);
     }
 
     nav {
@@ -1310,38 +1304,23 @@ function layout(title, content) {
     }
 
     .hero {
-      width: min(
-        1180px,
-        calc(100% - 32px)
-      );
+      width: min(1180px, calc(100% - 32px));
       margin: 34px auto;
       padding: 48px;
       border-radius: 28px;
-
       background:
         radial-gradient(
           circle at 85% 20%,
           rgba(20,184,166,.28),
           transparent 35%
         ),
-        linear-gradient(
-          135deg,
-          #0f172a,
-          #1e3a8a
-        );
-
+        linear-gradient(135deg, #0f172a, #1e3a8a);
       color: white;
-
       display: grid;
-      grid-template-columns:
-        1.35fr .65fr;
-
+      grid-template-columns: 1.35fr .65fr;
       gap: 35px;
       align-items: center;
-
-      box-shadow:
-        0 25px 60px
-        rgba(15,23,42,.18);
+      box-shadow: 0 25px 60px rgba(15,23,42,.18);
     }
 
     .badge,
@@ -1359,8 +1338,7 @@ function layout(title, content) {
 
     .hero h1 {
       margin: 12px 0;
-      font-size:
-        clamp(32px, 5vw, 58px);
+      font-size: clamp(32px, 5vw, 58px);
       line-height: 1.25;
     }
 
@@ -1385,10 +1363,8 @@ function layout(title, content) {
     .hero-card {
       padding: 30px;
       border-radius: 24px;
-      background:
-        rgba(255,255,255,.10);
-      border:
-        1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.10);
+      border: 1px solid rgba(255,255,255,.14);
     }
 
     .hero-icon {
@@ -1413,10 +1389,7 @@ function layout(title, content) {
     }
 
     .section {
-      width: min(
-        1180px,
-        calc(100% - 32px)
-      );
+      width: min(1180px, calc(100% - 32px));
       margin: 70px auto;
     }
 
@@ -1441,44 +1414,27 @@ function layout(title, content) {
 
     .products-grid {
       display: grid;
-      grid-template-columns:
-        repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 20px;
     }
 
     .product-card {
       overflow: hidden;
       background: white;
-      border:
-        1px solid #e2e8f0;
+      border: 1px solid #e2e8f0;
       border-radius: 20px;
-
-      box-shadow:
-        0 10px 30px
-        rgba(15,23,42,.06);
-
-      transition:
-        transform .2s,
-        box-shadow .2s;
+      box-shadow: 0 10px 30px rgba(15,23,42,.06);
+      transition: transform .2s, box-shadow .2s;
     }
 
     .product-card:hover {
       transform: translateY(-4px);
-      box-shadow:
-        0 18px 40px
-        rgba(15,23,42,.12);
+      box-shadow: 0 18px 40px rgba(15,23,42,.12);
     }
 
     .product-image {
       height: 190px;
-
-      background:
-        linear-gradient(
-          135deg,
-          #dbeafe,
-          #ccfbf1
-        );
-
+      background: linear-gradient(135deg, #dbeafe, #ccfbf1);
       overflow: hidden;
     }
 
@@ -1593,16 +1549,10 @@ function layout(title, content) {
     }
 
     .features {
-      width: min(
-        1180px,
-        calc(100% - 32px)
-      );
+      width: min(1180px, calc(100% - 32px));
       margin: 70px auto;
-
       display: grid;
-      grid-template-columns:
-        repeat(4, minmax(0, 1fr));
-
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 16px;
     }
 
@@ -1610,8 +1560,7 @@ function layout(title, content) {
       background: white;
       padding: 25px;
       border-radius: 20px;
-      border:
-        1px solid #e2e8f0;
+      border: 1px solid #e2e8f0;
     }
 
     .feature-icon {
@@ -1636,23 +1585,12 @@ function layout(title, content) {
     }
 
     .promo {
-      width: min(
-        1180px,
-        calc(100% - 32px)
-      );
+      width: min(1180px, calc(100% - 32px));
       margin: 70px auto;
       padding: 35px;
       border-radius: 25px;
-
-      background:
-        linear-gradient(
-          135deg,
-          #0f766e,
-          #0f172a
-        );
-
+      background: linear-gradient(135deg, #0f766e, #0f172a);
       color: white;
-
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -1669,10 +1607,7 @@ function layout(title, content) {
     }
 
     .page-title {
-      width: min(
-        1180px,
-        calc(100% - 32px)
-      );
+      width: min(1180px, calc(100% - 32px));
       margin: 55px auto 30px;
     }
 
@@ -1681,29 +1616,19 @@ function layout(title, content) {
     }
 
     .account-wrap {
-      width: min(
-        1000px,
-        calc(100% - 32px)
-      );
+      width: min(1000px, calc(100% - 32px));
       margin: 50px auto;
-
       display: grid;
-      grid-template-columns:
-        1fr 1fr;
-
+      grid-template-columns: 1fr 1fr;
       gap: 22px;
     }
 
     .account-card {
       background: white;
       padding: 30px;
-      border:
-        1px solid #e2e8f0;
+      border: 1px solid #e2e8f0;
       border-radius: 22px;
-
-      box-shadow:
-        0 12px 35px
-        rgba(15,23,42,.06);
+      box-shadow: 0 12px 35px rgba(15,23,42,.06);
     }
 
     .account-card h1 {
@@ -1728,8 +1653,7 @@ function layout(title, content) {
     input {
       width: 100%;
       padding: 13px 14px;
-      border:
-        1px solid #cbd5e1;
+      border: 1px solid #cbd5e1;
       border-radius: 12px;
       outline: none;
       background: white;
@@ -1737,9 +1661,7 @@ function layout(title, content) {
 
     input:focus {
       border-color: #2563eb;
-      box-shadow:
-        0 0 0 3px
-        rgba(37,99,235,.10);
+      box-shadow: 0 0 0 3px rgba(37,99,235,.10);
     }
 
     .account-links {
@@ -1756,24 +1678,18 @@ function layout(title, content) {
     }
 
     .cart-box {
-      width: min(
-        900px,
-        calc(100% - 32px)
-      );
+      width: min(900px, calc(100% - 32px));
       margin: 30px auto 70px;
       background: white;
       padding: 30px;
       border-radius: 22px;
-      border:
-        1px solid #e2e8f0;
+      border: 1px solid #e2e8f0;
     }
 
     .cart-total {
       margin-top: 25px;
       padding-top: 20px;
-      border-top:
-        1px solid #e2e8f0;
-
+      border-top: 1px solid #e2e8f0;
       display: flex;
       justify-content: space-between;
     }
@@ -1789,31 +1705,23 @@ function layout(title, content) {
       padding: 35px;
       text-align: center;
       background: white;
-      border:
-        1px dashed #cbd5e1;
+      border: 1px dashed #cbd5e1;
       border-radius: 18px;
       color: #64748b;
     }
 
     .admin-grid {
-      width: min(
-        1180px,
-        calc(100% - 32px)
-      );
+      width: min(1180px, calc(100% - 32px));
       margin: 30px auto 70px;
-
       display: grid;
-      grid-template-columns:
-        repeat(3, minmax(0, 1fr));
-
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 18px;
     }
 
     .admin-card {
       padding: 25px;
       background: white;
-      border:
-        1px solid #e2e8f0;
+      border: 1px solid #e2e8f0;
       border-radius: 18px;
     }
 
@@ -1829,16 +1737,10 @@ function layout(title, content) {
     }
 
     .product-detail {
-      width: min(
-        1100px,
-        calc(100% - 32px)
-      );
+      width: min(1100px, calc(100% - 32px));
       margin: 50px auto 80px;
-
       display: grid;
-      grid-template-columns:
-        1fr 1fr;
-
+      grid-template-columns: 1fr 1fr;
       gap: 35px;
       align-items: center;
     }
@@ -1847,14 +1749,7 @@ function layout(title, content) {
       height: 450px;
       overflow: hidden;
       border-radius: 25px;
-
-      background:
-        linear-gradient(
-          135deg,
-          #dbeafe,
-          #ccfbf1
-        );
-
+      background: linear-gradient(135deg, #dbeafe, #ccfbf1);
       display: grid;
       place-items: center;
     }
@@ -1869,8 +1764,7 @@ function layout(title, content) {
       background: white;
       padding: 35px;
       border-radius: 25px;
-      border:
-        1px solid #e2e8f0;
+      border: 1px solid #e2e8f0;
     }
 
     .detail-content h1 {
@@ -1902,12 +1796,8 @@ function layout(title, content) {
     }
 
     .footer-inner {
-      width: min(
-        1180px,
-        calc(100% - 32px)
-      );
+      width: min(1180px, calc(100% - 32px));
       margin: auto;
-
       display: flex;
       justify-content: space-between;
       gap: 25px;
@@ -1934,13 +1824,11 @@ function layout(title, content) {
       }
 
       .products-grid {
-        grid-template-columns:
-          repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
       .features {
-        grid-template-columns:
-          repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
       .account-wrap {
@@ -2006,7 +1894,6 @@ function layout(title, content) {
 
 </head>
 
-
 <body>
 
 <header>
@@ -2057,11 +1944,9 @@ function layout(title, content) {
 
 </header>
 
-
 <main>
   ${content}
 </main>
-
 
 <footer>
 
@@ -2088,15 +1973,12 @@ function layout(title, content) {
 
 </footer>
 
-
 <script>
 
   function getCart() {
     try {
       return JSON.parse(
-        localStorage.getItem(
-          "digimarixo_cart"
-        ) || "[]"
+        localStorage.getItem("digimarixo_cart") || "[]"
       );
     } catch {
       return [];
@@ -2113,36 +1995,47 @@ function layout(title, content) {
 
 
   function addToCart(id, name, price) {
-
     const cart = getCart();
 
     const existing = cart.find(
-      item =>
-        Number(item.id) === Number(id)
+      item => Number(item.id) === Number(id)
     );
 
     if (existing) {
-
-      existing.quantity += 1;
-
+      existing.quantity =
+        Number(existing.quantity || 0) + 1;
     } else {
-
       cart.push({
         id: Number(id),
-        name: name,
-        price: Number(price) || 0,
+        name: String(name || "محصول"),
+        price: normalizeClientPrice(price),
         quantity: 1
       });
-
     }
 
     saveCart(cart);
-
     renderCart();
 
-    alert(
-      "محصول به سبد خرید اضافه شد."
-    );
+    alert("محصول به سبد خرید اضافه شد.");
+  }
+
+
+  function normalizeClientPrice(value) {
+    const text = String(value ?? "")
+      .trim()
+      .replace(/[۰-۹]/g, function(d) {
+        return "۰۱۲۳۴۵۶۷۸۹".indexOf(d);
+      })
+      .replace(/[٠-٩]/g, function(d) {
+        return "٠١٢٣٤٥٦٧٨٩".indexOf(d);
+      })
+      .replace(/[,\s٬،]/g, "");
+
+    const number = Number(text);
+
+    return Number.isFinite(number)
+      ? Math.max(0, Math.round(number))
+      : 0;
   }
 
 
@@ -2158,16 +2051,11 @@ function layout(title, content) {
 
 
   function renderCart() {
-
     const box =
-      document.getElementById(
-        "cart-items"
-      );
+      document.getElementById("cart-items");
 
     const totalBox =
-      document.getElementById(
-        "cart-total"
-      );
+      document.getElementById("cart-total");
 
     if (!box || !totalBox) {
       return;
@@ -2176,11 +2064,8 @@ function layout(title, content) {
     const cart = getCart();
 
     if (!cart.length) {
-
       box.innerHTML =
-        '<div class="empty">' +
-        'سبد خرید شما خالی است.' +
-        '</div>';
+        '<div class="empty">سبد خرید شما خالی است.</div>';
 
       totalBox.textContent =
         "۰ تومان";
@@ -2191,114 +2076,98 @@ function layout(title, content) {
     let total = 0;
 
     box.innerHTML =
-      cart.map(
-        function(item, index) {
+      cart.map(function(item, index) {
 
-          const price =
-            Number(item.price);
+        const price =
+          normalizeClientPrice(item.price);
 
-          const quantity =
-            Number(item.quantity);
+        const quantityNumber =
+          Number(item.quantity);
 
-          const safePrice =
-            Number.isFinite(price)
-              ? price
-              : 0;
+        const safeQuantity =
+          Number.isFinite(quantityNumber) &&
+          quantityNumber > 0
+            ? Math.floor(quantityNumber)
+            : 1;
 
-          const safeQuantity =
-            Number.isFinite(quantity) &&
-            quantity > 0
-              ? quantity
-              : 1;
+        const line =
+          price * safeQuantity;
 
-          const line =
-            safePrice * safeQuantity;
+        total += line;
 
-          total += line;
+        return `
+          <div
+            style="
+              padding:15px 0;
+              border-bottom:1px solid #e2e8f0;
+              display:flex;
+              justify-content:space-between;
+              gap:15px;
+              align-items:center;
+            "
+          >
 
-          return `
-            <div
-              style="
-                padding:15px 0;
-                border-bottom:1px solid #e2e8f0;
-                display:flex;
-                justify-content:space-between;
-                gap:15px;
-                align-items:center
-              "
-            >
+            <div>
 
-              <div>
+              <strong>
+                ${escapeClientHTML(item.name)}
+              </strong>
 
-                <strong>
-                  ${escapeClientHTML(
-                    item.name
-                  )}
-                </strong>
-
-                <div
-                  style="
-                    color:#64748b;
-                    font-size:13px
-                  "
-                >
-                  تعداد:
-                  ${formatNumber(
-                    safeQuantity
-                  )}
-                </div>
-
-              </div>
-
-              <div style="text-align:left">
-
-                <strong>
-                  ${formatNumber(line)}
-                  تومان
-                </strong>
-
-                <br>
-
-                <button
-                  class="btn small orange"
-                  onclick="removeCartItem(${index})"
-                >
-                  حذف
-                </button>
-
+              <div
+                style="
+                  color:#64748b;
+                  font-size:13px;
+                "
+              >
+                تعداد:
+                ${formatNumber(safeQuantity)}
               </div>
 
             </div>
-          `;
-        }
-      ).join("");
+
+            <div style="text-align:left;">
+
+              <strong>
+                ${formatNumber(line)}
+                تومان
+              </strong>
+
+              <br>
+
+              <button
+                class="btn small orange"
+                onclick="removeCartItem(${index})"
+              >
+                حذف
+              </button>
+
+            </div>
+
+          </div>
+        `;
+
+      }).join("");
 
     totalBox.textContent =
-      formatNumber(total) +
-      " تومان";
+      formatNumber(total) + " تومان";
   }
 
 
   function removeCartItem(index) {
-
     const cart = getCart();
 
     cart.splice(index, 1);
 
     saveCart(cart);
-
     renderCart();
   }
 
 
   async function checkoutCart() {
-
     const cart = getCart();
 
     if (!cart.length) {
-      alert(
-        "سبد خرید شما خالی است."
-      );
+      alert("سبد خرید شما خالی است.");
       return;
     }
 
@@ -2319,34 +2188,37 @@ function layout(title, content) {
       prompt("آدرس:");
 
     try {
-
       const response =
         await fetch(
           "/api/orders",
           {
             method: "POST",
             headers: {
-              "content-type":
-                "application/json"
+              "content-type": "application/json"
             },
             body: JSON.stringify({
               customer_name:
                 customerName,
+
               customer_phone:
                 customerPhone || "",
+
               customer_email:
                 customerEmail || "",
+
               address:
                 address || "",
+
               items:
-                cart.map(item => ({
-                  product_id:
-                    Number(item.id),
-                  quantity:
-                    Number(
-                      item.quantity || 1
-                    )
-                }))
+                cart.map(function(item) {
+                  return {
+                    product_id:
+                      Number(item.id),
+
+                    quantity:
+                      Number(item.quantity || 1)
+                  };
+                })
             })
           }
         );
@@ -2355,7 +2227,6 @@ function layout(title, content) {
         await response.json();
 
       if (!result.ok) {
-
         alert(
           result.error ||
           "ثبت سفارش انجام نشد."
@@ -2376,21 +2247,17 @@ function layout(title, content) {
       );
 
     } catch (error) {
+      console.error(error);
 
       alert(
         "خطا در ثبت سفارش."
       );
-
-      console.error(error);
     }
   }
 
 
   function escapeClientHTML(value) {
-
-    return String(
-      value ?? ""
-    )
+    return String(value ?? "")
       .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")
       .replaceAll(">", "&gt;")
@@ -2402,7 +2269,6 @@ function layout(title, content) {
   renderCart();
 
 </script>
-
 
 </body>
 </html>
@@ -2422,6 +2288,7 @@ function html(content, status = 200) {
       headers: {
         "content-type":
           "text/html; charset=UTF-8",
+
         "cache-control":
           "no-store"
       }
@@ -2438,6 +2305,7 @@ function json(data, status = 200) {
       headers: {
         "content-type":
           "application/json; charset=UTF-8",
+
         "cache-control":
           "no-store"
       }
@@ -2451,44 +2319,54 @@ function json(data, status = 200) {
 ========================================================= */
 
 function normalizePrice(value) {
-  const normalized = String(value ?? "")
-    .trim()
-    .replace(/[۰-۹]/g, d =>
-      "۰۱۲۳۴۵۶۷۸۹".indexOf(d)
-    )
-    .replace(/[٠-٩]/g, d =>
-      "٠١٢٣٤٥٦٧٨٩".indexOf(d)
-    )
-    .replace(/[,\s٬،]/g, "");
+  const normalized =
+    String(value ?? "")
+      .trim()
+      .replace(/[۰-۹]/g, function(d) {
+        return "۰۱۲۳۴۵۶۷۸۹".indexOf(d);
+      })
+      .replace(/[٠-٩]/g, function(d) {
+        return "٠١٢٣٤٥٦٧٨٩".indexOf(d);
+      })
+      .replace(/[,\s٬،]/g, "");
 
-  const number = Number(normalized);
+  const number =
+    Number(normalized);
 
   if (!Number.isFinite(number)) {
     return 0;
   }
 
-  return Math.max(0, Math.round(number));
+  return Math.max(
+    0,
+    Math.round(number)
+  );
+}
+
+
+function normalizeStock(value) {
+  const number =
+    Number(value);
+
+  if (!Number.isFinite(number)) {
+    return 0;
+  }
+
+  return Math.max(
+    0,
+    Math.floor(number)
+  );
 }
 
 
 function formatPrice(value) {
-  const number = normalizePrice(value);
+  const number =
+    normalizePrice(value);
 
   return (
     number.toLocaleString("fa-IR") +
     " تومان"
   );
-}
-
-
-function formatNumber(value) {
-  const number = Number(value);
-
-  if (!Number.isFinite(number)) {
-    return "۰";
-  }
-
-  return number.toLocaleString("fa-IR");
 }
 
 
@@ -2526,4 +2404,4 @@ function safeError(error) {
   }
 
   return String(error);
-         }
+     }
