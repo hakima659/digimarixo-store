@@ -33,6 +33,7 @@ export default {
 
       if (path === "/api/products" && method === "GET") {
         const products = await getProducts(env);
+
         return json({
           ok: true,
           products
@@ -99,7 +100,6 @@ export default {
         ).run();
 
         const userId = result.meta.last_row_id;
-
         const token = randomToken();
 
         await env.DB.prepare(`
@@ -145,7 +145,10 @@ export default {
           FROM users
           WHERE username = ? OR email = ?
           LIMIT 1
-        `).bind(login, login.toLowerCase()).first();
+        `).bind(
+          login,
+          login.toLowerCase()
+        ).first();
 
         if (!user) {
           return json({
@@ -274,7 +277,6 @@ export default {
         }
 
         const body = await readJSON(request);
-
         const productId = Number(body.productId);
 
         if (!productId) {
@@ -333,10 +335,7 @@ export default {
 
         const username = String(body.username || "").trim();
         const password = String(body.password || "");
-
-        const adminPassword = String(
-          env.ADMIN_PASSWORD || ""
-        );
+        const adminPassword = String(env.ADMIN_PASSWORD || "");
 
         if (!adminPassword) {
           return json({
@@ -874,7 +873,6 @@ async function readJSON(request) {
 
 function getCookie(request, name) {
   const cookie = request.headers.get("Cookie") || "";
-
   const parts = cookie.split(";");
 
   for (const part of parts) {
@@ -1460,8 +1458,7 @@ main{
     );
 }
 
-.feature:nth-child(2)
-.feature-icon{
+.feature:nth-child(2) .feature-icon{
   background:
     linear-gradient(
       135deg,
@@ -1470,8 +1467,7 @@ main{
     );
 }
 
-.feature:nth-child(3)
-.feature-icon{
+.feature:nth-child(3) .feature-icon{
   background:
     linear-gradient(
       135deg,
@@ -1555,8 +1551,7 @@ main{
     );
 }
 
-.product:nth-child(3n+2)
-.product-top{
+.product:nth-child(3n+2) .product-top{
   background:
     linear-gradient(
       135deg,
@@ -1565,8 +1560,7 @@ main{
     );
 }
 
-.product:nth-child(3n)
-.product-top{
+.product:nth-child(3n) .product-top{
   background:
     linear-gradient(
       135deg,
@@ -3744,4 +3738,4 @@ function notFoundPage() {
 
     `
   );
-             }
+}
