@@ -168,11 +168,6 @@ async function initDB(env) {
     )
   `).run();
 
-  /*
-    Migration for old products table.
-    This checks existing columns before ALTER TABLE.
-  */
-
   const columns = await env.DB
     .prepare(`PRAGMA table_info(products)`)
     .all();
@@ -226,7 +221,7 @@ async function seedProducts(env) {
     .prepare(`SELECT COUNT(*) AS count FROM products`)
     .first();
 
-  if (Number(result?.count || 0) > 0) {
+  if (safeNumber(result?.count) > 0) {
     return;
   }
 
@@ -297,7 +292,7 @@ async function getProducts(env) {
 
   return {
     ok: true,
-    products: result.results || []
+    products: (result.results || []).map(normalizeProduct)
   };
 }
 
@@ -330,7 +325,7 @@ async function getProduct(env, id) {
 
   return {
     ok: true,
-    product
+    product: normalizeProduct(product)
   };
 }
 
@@ -394,12 +389,12 @@ async function createOrder(request, env) {
 
   for (const item of items) {
     const productId =
-      Number(item.product_id ?? item.id);
+      safeNumber(item.product_id ?? item.id);
 
     const quantity =
-      Math.max(1, Number(item.quantity || 1));
+      Math.max(1, safeNumber(item.quantity || 1));
 
-    if (!Number.isFinite(productId)) {
+    if (!Number.isFinite(productId) || productId <= 0) {
       return json(
         {
           ok: false,
@@ -418,7 +413,7 @@ async function createOrder(request, env) {
       .bind(productId)
       .first();
 
-    if (!product || Number(product.active) !== 1) {
+    if (!product || safeNumber(product.active) !== 1) {
       return json(
         {
           ok: false,
@@ -428,7 +423,9 @@ async function createOrder(request, env) {
       );
     }
 
-    if (Number(product.stock) < quantity) {
+    const stock = safeNumber(product.stock);
+
+    if (stock < quantity) {
       return json(
         {
           ok: false,
@@ -438,7 +435,7 @@ async function createOrder(request, env) {
       );
     }
 
-    const price = Number(product.price || 0);
+    const price = safeNumber(product.price);
 
     total += price * quantity;
 
@@ -717,7 +714,9 @@ function productDetailPage(product) {
       </div>
     `;
 
-  const stock = Number(product.stock || 0);
+  const stock = safeNumber(product.stock);
+  const price = safeNumber(product.price);
+  const id = safeNumber(product.id);
 
   return `
     <section class="product-detail">
@@ -744,7 +743,7 @@ function productDetailPage(product) {
         </p>
 
         <div class="detail-price">
-          ${formatPrice(product.price)}
+          ${formatPrice(price)}
         </div>
 
         <div class="detail-stock">
@@ -761,9 +760,9 @@ function productDetailPage(product) {
               <button
                 class="btn orange"
                 onclick="addToCart(
-                  ${Number(product.id)},
+                  ${id},
                   '${escapeJS(product.name || "محصول")}',
-                  ${Number(product.price || 0)}
+                  ${price}
                 )"
               >
                 افزودن به سبد خرید
@@ -798,7 +797,7 @@ function productDetailPage(product) {
 ========================================================= */
 
 function productCard(product) {
-  const id = Number(product.id || 0);
+  const id = safeNumber(product.id);
 
   const name =
     escapeHTML(product.name || "محصول");
@@ -812,8 +811,11 @@ function productCard(product) {
   const price =
     formatPrice(product.price);
 
+  const numericPrice =
+    safeNumber(product.price);
+
   const stock =
-    Number(product.stock || 0);
+    safeNumber(product.stock);
 
   const image = product.image
     ? `
@@ -884,7 +886,7 @@ function productCard(product) {
                   onclick="addToCart(
                     ${id},
                     '${escapeJS(product.name || "محصول")}',
-                    ${Number(product.price || 0)}
+                    ${numericPrice}
                   )"
                 >
                   افزودن به سبد
@@ -2109,25 +2111,50 @@ function layout(title, content) {
   }
 
 
+  function clientNumber(value) {
+    const cleaned = String(value ?? "")
+      .replace(/[۰-۹]/g, d =>
+        "۰۱۲۳۴۵۶۷۸۹".indexOf(d)
+      )
+      .replace(/[٠-٩]/g, d =>
+        "٠١٢٣٤٥٦٧٨٩".indexOf(d)
+      )
+      .replace(/[,\s٬،]/g, "");
+
+    const number = Number(cleaned);
+
+    return Number.isFinite(number)
+      ? number
+      : 0;
+  }
+
+
   function addToCart(id, name, price) {
 
     const cart = getCart();
 
+    const numericId =
+      clientNumber(id);
+
+    const numericPrice =
+      clientNumber(price);
+
     const existing = cart.find(
       item =>
-        Number(item.id) === Number(id)
+        clientNumber(item.id) === numericId
     );
 
     if (existing) {
 
-      existing.quantity += 1;
+      existing.quantity =
+        clientNumber(existing.quantity) + 1;
 
     } else {
 
       cart.push({
-        id: Number(id),
+        id: numericId,
         name: name,
-        price: Number(price),
+        price: numericPrice,
         quantity: 1
       });
 
@@ -2144,8 +2171,8 @@ function layout(title, content) {
 
 
   function formatNumber(value) {
-    return Number(
-      value || 0
+    return clientNumber(
+      value
     ).toLocaleString("fa-IR");
   }
 
@@ -2187,9 +2214,17 @@ function layout(title, content) {
       cart.map(
         function(item, index) {
 
+          const itemPrice =
+            clientNumber(item.price);
+
+          const itemQuantity =
+            Math.max(
+              1,
+              clientNumber(item.quantity || 1)
+            );
+
           const line =
-            Number(item.price || 0) *
-            Number(item.quantity || 1);
+            itemPrice * itemQuantity;
 
           total += line;
 
@@ -2221,7 +2256,7 @@ function layout(title, content) {
                 >
                   تعداد:
                   ${formatNumber(
-                    item.quantity
+                    itemQuantity
                   )}
                 </div>
 
@@ -2309,19 +2344,27 @@ function layout(title, content) {
             body: JSON.stringify({
               customer_name:
                 customerName,
+
               customer_phone:
                 customerPhone || "",
+
               customer_email:
                 customerEmail || "",
+
               address:
                 address || "",
+
               items:
                 cart.map(item => ({
                   product_id:
-                    Number(item.id),
+                    clientNumber(item.id),
+
                   quantity:
-                    Number(
-                      item.quantity || 1
+                    Math.max(
+                      1,
+                      clientNumber(
+                        item.quantity || 1
+                      )
                     )
                 }))
             })
@@ -2424,37 +2467,69 @@ function json(data, status = 200) {
 
 
 /* =========================================================
-   HELPERS
+   NUMBER HELPERS
 ========================================================= */
 
-/*
-  FIX:
-  جلوگیری از نمایش NaN تومان
-  و پشتیبانی از اعداد فارسی و عربی
-*/
+function normalizeDigits(value) {
+  return String(value ?? "")
+    .replace(/[۰-۹]/g, d =>
+      "۰۱۲۳۴۵۶۷۸۹".indexOf(d)
+    )
+    .replace(/[٠-٩]/g, d =>
+      "٠١٢٣٤٥٦٧٨٩".indexOf(d)
+    );
+}
+
+
+function safeNumber(value) {
+  const cleaned =
+    normalizeDigits(value)
+      .replace(/[,\s٬،]/g, "");
+
+  const number = Number(cleaned);
+
+  return Number.isFinite(number)
+    ? number
+    : 0;
+}
+
+
+function normalizeProduct(product) {
+  if (!product) {
+    return null;
+  }
+
+  return {
+    ...product,
+
+    id: safeNumber(product.id),
+
+    price: safeNumber(product.price),
+
+    stock: safeNumber(product.stock),
+
+    active: safeNumber(product.active)
+  };
+}
+
 
 function formatPrice(value) {
-  const normalized = String(value ?? "")
-    .replace(/[۰-۹]/g, d => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
-    .replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d))
-    .replace(/[,\s٬،]/g, "");
-
-  const number = Number(normalized);
-
   return (
-    (Number.isFinite(number) ? number : 0)
-      .toLocaleString("fa-IR") +
+    safeNumber(value).toLocaleString("fa-IR") +
     " تومان"
   );
 }
 
 
 function formatNumber(value) {
-  return Number(
-    value || 0
-  ).toLocaleString("fa-IR");
+  return safeNumber(value)
+    .toLocaleString("fa-IR");
 }
 
+
+/* =========================================================
+   OTHER HELPERS
+========================================================= */
 
 function escapeHTML(value) {
   return String(value ?? "")
@@ -2491,4 +2566,4 @@ function safeError(error) {
   }
 
   return String(error);
-      }
+}
