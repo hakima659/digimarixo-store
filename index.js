@@ -3,7 +3,7 @@ const STORE_EN = "DigiMarixo";
 const DEFAULT_ADMIN_USERNAME = "admin";
 
 /* =========================================================
-   MAIN WORKER
+   MAIN
 ========================================================= */
 
 export default {
@@ -15,183 +15,186 @@ export default {
     try {
       await initDB(env);
 
-      /* =========================
-         BASIC / HEALTH
-      ========================= */
-
       if (path === "/health" && method === "GET") {
         return json({
           ok: true,
-          store: STORE_EN,
-          database: !!env.DB
+          store: STORE_NAME,
+          english: STORE_EN
         });
       }
 
       /* =========================
-         API - PRODUCTS
+         PUBLIC API
       ========================= */
 
       if (path === "/api/products" && method === "GET") {
-        const products = await getProducts(env);
+        const result = await env.DB.prepare(`
+          SELECT
+            id,
+            name,
+            slug,
+            description,
+            price,
+            image,
+            category,
+            stock,
+            featured,
+            created_at
+          FROM products
+          WHERE active = 1
+          ORDER BY featured DESC, id DESC
+        `).all();
 
         return json({
           ok: true,
-          products
+          products: result.results || []
         });
       }
 
       /* =========================
-         API - REGISTER
+         AUTH API
       ========================= */
 
       if (path === "/api/register" && method === "POST") {
-        const body = await readJSON(request);
+        const body = await request.json();
 
         const username = String(body.username || "").trim();
         const email = String(body.email || "").trim().toLowerCase();
         const password = String(body.password || "");
 
         if (!username || !email || !password) {
-          return json({
-            ok: false,
-            error: "همه فیلدها را کامل کنید."
-          }, 400);
-        }
-
-        if (username.length < 3) {
-          return json({
-            ok: false,
-            error: "نام کاربری باید حداقل ۳ کاراکتر باشد."
-          }, 400);
+          return json(
+            { ok: false, error: "همه فیلدها الزامی هستند." },
+            400
+          );
         }
 
         if (password.length < 6) {
-          return json({
-            ok: false,
-            error: "رمز عبور باید حداقل ۶ کاراکتر باشد."
-          }, 400);
+          return json(
+            { ok: false, error: "رمز عبور باید حداقل ۶ کاراکتر باشد." },
+            400
+          );
         }
 
-        const existing = await env.DB.prepare(`
+        const exists = await env.DB.prepare(`
           SELECT id
           FROM users
           WHERE username = ? OR email = ?
           LIMIT 1
-        `).bind(username, email).first();
+        `)
+          .bind(username, email)
+          .first();
 
-        if (existing) {
-          return json({
-            ok: false,
-            error: "نام کاربری یا ایمیل قبلاً ثبت شده است."
-          }, 409);
+        if (exists) {
+          return json(
+            { ok: false, error: "نام کاربری یا ایمیل قبلاً ثبت شده است." },
+            409
+          );
         }
 
-        const passwordHash = await hashPassword(password);
+        const passwordHash = await sha256(password);
 
         const result = await env.DB.prepare(`
           INSERT INTO users
           (username, email, password_hash, created_at)
           VALUES (?, ?, ?, ?)
-        `).bind(
-          username,
-          email,
-          passwordHash,
-          Date.now()
-        ).run();
+        `)
+          .bind(
+            username,
+            email,
+            passwordHash,
+            now()
+          )
+          .run();
 
         const userId = result.meta.last_row_id;
-        const token = randomToken();
+
+        const token = crypto.randomUUID();
 
         await env.DB.prepare(`
           INSERT INTO sessions
           (token, user_id, created_at)
           VALUES (?, ?, ?)
-        `).bind(
-          token,
-          userId,
-          Date.now()
-        ).run();
+        `)
+          .bind(token, userId, now())
+          .run();
 
-        return new Response(JSON.stringify({
-          ok: true,
-          message: "حساب با موفقیت ساخته شد."
-        }), {
-          headers: {
-            "Content-Type": "application/json; charset=utf-8",
-            "Set-Cookie": cookieHeader("session", token)
+        return json(
+          {
+            ok: true,
+            message: "ثبت‌نام با موفقیت انجام شد."
+          },
+          200,
+          {
+            "Set-Cookie": sessionCookie(token)
           }
-        });
+        );
       }
 
-      /* =========================
-         API - LOGIN
-      ========================= */
-
       if (path === "/api/login" && method === "POST") {
-        const body = await readJSON(request);
+        const body = await request.json();
 
-        const login = String(body.login || "").trim();
+        const identity = String(
+          body.username || body.email || ""
+        )
+          .trim()
+          .toLowerCase();
+
         const password = String(body.password || "");
 
-        if (!login || !password) {
-          return json({
-            ok: false,
-            error: "نام کاربری/ایمیل و رمز عبور را وارد کنید."
-          }, 400);
+        if (!identity || !password) {
+          return json(
+            { ok: false, error: "نام کاربری/ایمیل و رمز عبور را وارد کنید." },
+            400
+          );
         }
 
         const user = await env.DB.prepare(`
-          SELECT *
+          SELECT id, username, email, password_hash
           FROM users
-          WHERE username = ? OR email = ?
+          WHERE LOWER(username) = ? OR LOWER(email) = ?
           LIMIT 1
-        `).bind(
-          login,
-          login.toLowerCase()
-        ).first();
+        `)
+          .bind(identity, identity)
+          .first();
 
         if (!user) {
-          return json({
-            ok: false,
-            error: "اطلاعات ورود صحیح نیست."
-          }, 401);
+          return json(
+            { ok: false, error: "اطلاعات ورود صحیح نیست." },
+            401
+          );
         }
 
-        const passwordHash = await hashPassword(password);
+        const passwordHash = await sha256(password);
 
         if (passwordHash !== user.password_hash) {
-          return json({
-            ok: false,
-            error: "اطلاعات ورود صحیح نیست."
-          }, 401);
+          return json(
+            { ok: false, error: "اطلاعات ورود صحیح نیست." },
+            401
+          );
         }
 
-        const token = randomToken();
+        const token = crypto.randomUUID();
 
         await env.DB.prepare(`
           INSERT INTO sessions
           (token, user_id, created_at)
           VALUES (?, ?, ?)
-        `).bind(
-          token,
-          user.id,
-          Date.now()
-        ).run();
+        `)
+          .bind(token, user.id, now())
+          .run();
 
-        return new Response(JSON.stringify({
-          ok: true,
-          message: "ورود موفق بود."
-        }), {
-          headers: {
-            "Content-Type": "application/json; charset=utf-8",
-            "Set-Cookie": cookieHeader("session", token)
+        return json(
+          {
+            ok: true,
+            message: "ورود موفق بود."
+          },
+          200,
+          {
+            "Set-Cookie": sessionCookie(token)
           }
-        });
+        );
       }
-
-      /* =========================
-         API - LOGOUT
-      ========================= */
 
       if (path === "/api/logout" && method === "POST") {
         const token = getCookie(request, "session");
@@ -200,25 +203,24 @@ export default {
           await env.DB.prepare(`
             DELETE FROM sessions
             WHERE token = ?
-          `).bind(token).run();
+          `)
+            .bind(token)
+            .run();
         }
 
-        return new Response(JSON.stringify({
-          ok: true
-        }), {
-          headers: {
-            "Content-Type": "application/json; charset=utf-8",
-            "Set-Cookie": cookieHeader("session", "", true)
+        return json(
+          {
+            ok: true
+          },
+          200,
+          {
+            "Set-Cookie": clearCookie("session")
           }
-        });
+        );
       }
 
-      /* =========================
-         API - ME
-      ========================= */
-
       if (path === "/api/me" && method === "GET") {
-        const user = await getCurrentUser(request, env);
+        const user = await getUser(request, env);
 
         if (!user) {
           return json({
@@ -233,189 +235,289 @@ export default {
           user: {
             id: user.id,
             username: user.username,
-            email: user.email,
-            created_at: user.created_at
+            email: user.email
           }
         });
       }
 
       /* =========================
-         API - ORDERS
+         USER ORDERS
       ========================= */
 
       if (path === "/api/orders" && method === "GET") {
-        const user = await getCurrentUser(request, env);
+        const user = await getUser(request, env);
 
         if (!user) {
-          return json({
-            ok: false,
-            error: "ابتدا وارد حساب شوید."
-          }, 401);
+          return json(
+            {
+              ok: false,
+              error: "ابتدا وارد حساب کاربری شوید."
+            },
+            401
+          );
         }
 
-        const result = await env.DB.prepare(`
-          SELECT *
+        const orders = await env.DB.prepare(`
+          SELECT
+            id,
+            total,
+            status,
+            created_at
           FROM orders
           WHERE user_id = ?
           ORDER BY id DESC
-        `).bind(user.id).all();
+        `)
+          .bind(user.id)
+          .all();
 
         return json({
           ok: true,
-          orders: result.results || []
+          orders: orders.results || []
         });
       }
 
       if (path === "/api/orders" && method === "POST") {
-        const user = await getCurrentUser(request, env);
+        const user = await getUser(request, env);
 
         if (!user) {
-          return json({
-            ok: false,
-            error: "ابتدا وارد حساب شوید."
-          }, 401);
+          return json(
+            {
+              ok: false,
+              error: "ابتدا وارد حساب کاربری شوید."
+            },
+            401
+          );
         }
 
-        const body = await readJSON(request);
-        const productId = Number(body.productId);
+        const body = await request.json();
+        const items = Array.isArray(body.items) ? body.items : [];
 
-        if (!productId) {
-          return json({
-            ok: false,
-            error: "محصول انتخاب نشده است."
-          }, 400);
+        if (!items.length) {
+          return json(
+            {
+              ok: false,
+              error: "سبد خرید خالی است."
+            },
+            400
+          );
         }
 
-        const product = await getProduct(env, productId);
+        let total = 0;
+        const validItems = [];
 
-        if (!product) {
-          return json({
-            ok: false,
-            error: "محصول پیدا نشد."
-          }, 404);
+        for (const item of items) {
+          const productId = Number(item.product_id);
+          const quantity = Math.max(
+            1,
+            Number(item.quantity || 1)
+          );
+
+          if (!Number.isInteger(productId)) {
+            continue;
+          }
+
+          const product = await env.DB.prepare(`
+            SELECT id, name, price, stock
+            FROM products
+            WHERE id = ? AND active = 1
+            LIMIT 1
+          `)
+            .bind(productId)
+            .first();
+
+          if (!product) {
+            continue;
+          }
+
+          if (
+            product.stock !== null &&
+            product.stock !== undefined &&
+            Number(product.stock) < quantity
+          ) {
+            return json(
+              {
+                ok: false,
+                error: `موجودی محصول «${product.name}» کافی نیست.`
+              },
+              400
+            );
+          }
+
+          const lineTotal =
+            Number(product.price || 0) * quantity;
+
+          total += lineTotal;
+
+          validItems.push({
+            product,
+            quantity,
+            lineTotal
+          });
+        }
+
+        if (!validItems.length) {
+          return json(
+            {
+              ok: false,
+              error: "محصول معتبری برای سفارش پیدا نشد."
+            },
+            400
+          );
         }
 
         const orderResult = await env.DB.prepare(`
           INSERT INTO orders
-          (user_id, total_price, status, created_at)
+          (user_id, total, status, created_at)
           VALUES (?, ?, ?, ?)
-        `).bind(
-          user.id,
-          product.price,
-          "pending",
-          Date.now()
-        ).run();
+        `)
+          .bind(
+            user.id,
+            total,
+            "pending",
+            now()
+          )
+          .run();
 
         const orderId = orderResult.meta.last_row_id;
 
-        await env.DB.prepare(`
-          INSERT INTO order_items
-          (order_id, product_id, quantity, price)
-          VALUES (?, ?, ?, ?)
-        `).bind(
-          orderId,
-          product.id,
-          1,
-          product.price
-        ).run();
+        for (const item of validItems) {
+          await env.DB.prepare(`
+            INSERT INTO order_items
+            (order_id, product_id, quantity, price)
+            VALUES (?, ?, ?, ?)
+          `)
+            .bind(
+              orderId,
+              item.product.id,
+              item.quantity,
+              item.product.price
+            )
+            .run();
+
+          if (
+            item.product.stock !== null &&
+            item.product.stock !== undefined
+          ) {
+            await env.DB.prepare(`
+              UPDATE products
+              SET stock = stock - ?
+              WHERE id = ?
+            `)
+              .bind(
+                item.quantity,
+                item.product.id
+              )
+              .run();
+          }
+        }
 
         return json({
           ok: true,
-          message: "سفارش با موفقیت ثبت شد.",
-          orderId
+          order_id: orderId,
+          total
         });
       }
 
       /* =========================
-         ADMIN LOGIN
+         ADMIN AUTH
       ========================= */
 
       if (path === "/api/admin/login" && method === "POST") {
-        const body = await readJSON(request);
+        const body = await request.json();
 
-        const username = String(body.username || "").trim();
-        const password = String(body.password || "");
-        const adminPassword = String(env.ADMIN_PASSWORD || "");
+        const username = String(
+          body.username || ""
+        ).trim();
 
-        if (!adminPassword) {
-          return json({
-            ok: false,
-            error: "ADMIN_PASSWORD در Cloudflare تنظیم نشده است."
-          }, 500);
-        }
+        const password = String(
+          body.password || ""
+        );
+
+        const adminPassword =
+          env.ADMIN_PASSWORD || "";
 
         if (
           username !== DEFAULT_ADMIN_USERNAME ||
+          !adminPassword ||
           password !== adminPassword
         ) {
-          return json({
-            ok: false,
-            error: "اطلاعات مدیریت صحیح نیست."
-          }, 401);
+          return json(
+            {
+              ok: false,
+              error: "نام کاربری یا رمز عبور مدیریت صحیح نیست."
+            },
+            401
+          );
         }
 
-        const token = randomToken();
+        const token = crypto.randomUUID();
 
         await env.DB.prepare(`
           INSERT INTO admin_sessions
           (token, username, created_at)
           VALUES (?, ?, ?)
-        `).bind(
-          token,
-          username,
-          Date.now()
-        ).run();
+        `)
+          .bind(
+            token,
+            DEFAULT_ADMIN_USERNAME,
+            now()
+          )
+          .run();
 
-        return new Response(JSON.stringify({
-          ok: true,
-          message: "ورود مدیریت موفق بود."
-        }), {
-          headers: {
-            "Content-Type": "application/json; charset=utf-8",
-            "Set-Cookie": cookieHeader("admin_session", token)
+        return json(
+          {
+            ok: true
+          },
+          200,
+          {
+            "Set-Cookie": adminCookie(token)
           }
-        });
+        );
       }
 
-      /* =========================
-         ADMIN LOGOUT
-      ========================= */
-
       if (path === "/api/admin/logout" && method === "POST") {
-        const token = getCookie(request, "admin_session");
+        const token = getCookie(
+          request,
+          "admin_session"
+        );
 
         if (token) {
           await env.DB.prepare(`
             DELETE FROM admin_sessions
             WHERE token = ?
-          `).bind(token).run();
+          `)
+            .bind(token)
+            .run();
         }
 
-        return new Response(JSON.stringify({
-          ok: true
-        }), {
-          headers: {
-            "Content-Type": "application/json; charset=utf-8",
-            "Set-Cookie": cookieHeader(
-              "admin_session",
-              "",
-              true
+        return json(
+          {
+            ok: true
+          },
+          200,
+          {
+            "Set-Cookie": clearCookie(
+              "admin_session"
             )
           }
-        });
+        );
       }
 
-      /* =========================
-         ADMIN ME
-      ========================= */
-
-      if (path === "/api/admin/me" && method === "GET") {
-        const admin = await getAdmin(request, env);
+      if (
+        path === "/api/admin/me" &&
+        method === "GET"
+      ) {
+        const admin = await getAdmin(
+          request,
+          env
+        );
 
         return json({
           ok: true,
           loggedIn: !!admin,
-          admin: admin || null
+          username: admin
+            ? admin.username
+            : null
         });
       }
 
@@ -427,20 +529,30 @@ export default {
         path === "/api/admin/products" &&
         method === "GET"
       ) {
-        const admin = await getAdmin(request, env);
+        const admin = await getAdmin(
+          request,
+          env
+        );
 
         if (!admin) {
-          return json({
-            ok: false,
-            error: "دسترسی غیرمجاز."
-          }, 401);
+          return json(
+            {
+              ok: false,
+              error: "دسترسی غیرمجاز."
+            },
+            401
+          );
         }
 
-        const products = await getProducts(env);
+        const products = await env.DB.prepare(`
+          SELECT *
+          FROM products
+          ORDER BY id DESC
+        `).all();
 
         return json({
           ok: true,
-          products
+          products: products.results || []
         });
       }
 
@@ -448,81 +560,143 @@ export default {
         path === "/api/admin/products" &&
         method === "POST"
       ) {
-        const admin = await getAdmin(request, env);
+        const admin = await getAdmin(
+          request,
+          env
+        );
 
         if (!admin) {
-          return json({
-            ok: false,
-            error: "دسترسی غیرمجاز."
-          }, 401);
+          return json(
+            {
+              ok: false,
+              error: "دسترسی غیرمجاز."
+            },
+            401
+          );
         }
 
-        const body = await readJSON(request);
+        const body = await request.json();
 
-        const name = String(body.name || "").trim();
+        const name = String(
+          body.name || ""
+        ).trim();
+
+        const slug = String(
+          body.slug ||
+            name
+              .toLowerCase()
+              .replace(/\s+/g, "-")
+        ).trim();
+
         const description = String(
           body.description || ""
         ).trim();
 
-        const price = normalizePrice(body.price);
+        const price = Number(
+          body.price || 0
+        );
 
-        if (!name || !price) {
-          return json({
-            ok: false,
-            error: "نام محصول و قیمت را وارد کنید."
-          }, 400);
+        const image = String(
+          body.image || ""
+        ).trim();
+
+        const category = String(
+          body.category || ""
+        ).trim();
+
+        const stock = Number(
+          body.stock || 0
+        );
+
+        const featured =
+          body.featured ? 1 : 0;
+
+        if (!name) {
+          return json(
+            {
+              ok: false,
+              error: "نام محصول الزامی است."
+            },
+            400
+          );
         }
 
         const result = await env.DB.prepare(`
           INSERT INTO products
-          (name, description, price, created_at)
-          VALUES (?, ?, ?, ?)
-        `).bind(
-          name,
-          description,
-          price,
-          Date.now()
-        ).run();
+          (
+            name,
+            slug,
+            description,
+            price,
+            image,
+            category,
+            stock,
+            featured,
+            active,
+            created_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+        `)
+          .bind(
+            name,
+            slug,
+            description,
+            price,
+            image,
+            category,
+            stock,
+            featured,
+            now()
+          )
+          .run();
 
         return json({
           ok: true,
-          message: "محصول اضافه شد.",
           id: result.meta.last_row_id
         });
       }
 
       if (
-        path.startsWith("/api/admin/products/") &&
+        path === "/api/admin/products" &&
         method === "DELETE"
       ) {
-        const admin = await getAdmin(request, env);
-
-        if (!admin) {
-          return json({
-            ok: false,
-            error: "دسترسی غیرمجاز."
-          }, 401);
-        }
-
-        const id = Number(
-          path.split("/").pop()
+        const admin = await getAdmin(
+          request,
+          env
         );
 
+        if (!admin) {
+          return json(
+            {
+              ok: false,
+              error: "دسترسی غیرمجاز."
+            },
+            401
+          );
+        }
+
+        const body = await request.json();
+        const id = Number(body.id);
+
         if (!id) {
-          return json({
-            ok: false,
-            error: "شناسه محصول نامعتبر است."
-          }, 400);
+          return json(
+            {
+              ok: false,
+              error: "شناسه محصول نامعتبر است."
+            },
+            400
+          );
         }
 
         await env.DB.prepare(`
           DELETE FROM products
           WHERE id = ?
-        `).bind(id).run();
+        `)
+          .bind(id)
+          .run();
 
         return json({
-          ok: true,
-          message: "محصول حذف شد."
+          ok: true
         });
       }
 
@@ -534,29 +708,39 @@ export default {
         path === "/api/admin/orders" &&
         method === "GET"
       ) {
-        const admin = await getAdmin(request, env);
+        const admin = await getAdmin(
+          request,
+          env
+        );
 
         if (!admin) {
-          return json({
-            ok: false,
-            error: "دسترسی غیرمجاز."
-          }, 401);
+          return json(
+            {
+              ok: false,
+              error: "دسترسی غیرمجاز."
+            },
+            401
+          );
         }
 
-        const result = await env.DB.prepare(`
+        const orders = await env.DB.prepare(`
           SELECT
-            orders.*,
-            users.username,
-            users.email
-          FROM orders
-          LEFT JOIN users
-            ON users.id = orders.user_id
-          ORDER BY orders.id DESC
+            o.id,
+            o.user_id,
+            o.total,
+            o.status,
+            o.created_at,
+            u.username,
+            u.email
+          FROM orders o
+          LEFT JOIN users u
+            ON u.id = o.user_id
+          ORDER BY o.id DESC
         `).all();
 
         return json({
           ok: true,
-          orders: result.results || []
+          orders: orders.results || []
         });
       }
 
@@ -564,19 +748,27 @@ export default {
         path === "/api/admin/orders/status" &&
         method === "POST"
       ) {
-        const admin = await getAdmin(request, env);
+        const admin = await getAdmin(
+          request,
+          env
+        );
 
         if (!admin) {
-          return json({
-            ok: false,
-            error: "دسترسی غیرمجاز."
-          }, 401);
+          return json(
+            {
+              ok: false,
+              error: "دسترسی غیرمجاز."
+            },
+            401
+          );
         }
 
-        const body = await readJSON(request);
+        const body = await request.json();
 
-        const orderId = Number(body.orderId);
-        const status = String(body.status || "").trim();
+        const id = Number(body.id);
+        const status = String(
+          body.status || ""
+        ).trim();
 
         const allowed = [
           "pending",
@@ -586,25 +778,29 @@ export default {
           "cancelled"
         ];
 
-        if (!orderId || !allowed.includes(status)) {
-          return json({
-            ok: false,
-            error: "اطلاعات وضعیت سفارش نامعتبر است."
-          }, 400);
+        if (
+          !id ||
+          !allowed.includes(status)
+        ) {
+          return json(
+            {
+              ok: false,
+              error: "اطلاعات وضعیت سفارش نامعتبر است."
+            },
+            400
+          );
         }
 
         await env.DB.prepare(`
           UPDATE orders
           SET status = ?
           WHERE id = ?
-        `).bind(
-          status,
-          orderId
-        ).run();
+        `)
+          .bind(status, id)
+          .run();
 
         return json({
-          ok: true,
-          message: "وضعیت سفارش تغییر کرد."
+          ok: true
         });
       }
 
@@ -612,9 +808,13 @@ export default {
          PAGES
       ========================= */
 
-      if (path === "/" && method === "GET") {
+      if (
+        path === "/" &&
+        method === "GET"
+      ) {
         return html(
-          await homePage(env)
+          homePage(),
+          200
         );
       }
 
@@ -622,21 +822,37 @@ export default {
         path.startsWith("/product/") &&
         method === "GET"
       ) {
-        const id = Number(
-          path.split("/").pop()
+        const slug = decodeURIComponent(
+          path.replace("/product/", "")
         );
 
-        const product = await getProduct(env, id);
+        const product = await env.DB.prepare(`
+          SELECT *
+          FROM products
+          WHERE (slug = ? OR CAST(id AS TEXT) = ?)
+            AND active = 1
+          LIMIT 1
+        `)
+          .bind(slug, slug)
+          .first();
 
         if (!product) {
           return html(
-            notFoundPage(),
+            pageLayout(
+              "محصول پیدا نشد",
+              notFoundPage(
+                "محصول موردنظر پیدا نشد."
+              )
+            ),
             404
           );
         }
 
         return html(
-          productPage(product)
+          pageLayout(
+            product.name,
+            productPage(product)
+          )
         );
       }
 
@@ -645,7 +861,10 @@ export default {
         method === "GET"
       ) {
         return html(
-          accountPage()
+          pageLayout(
+            "حساب کاربری",
+            accountPage()
+          )
         );
       }
 
@@ -654,20 +873,31 @@ export default {
         method === "GET"
       ) {
         return html(
-          adminPage()
+          pageLayout(
+            "مدیریت فروشگاه",
+            adminPage()
+          )
         );
       }
 
       return html(
-        notFoundPage(),
+        pageLayout(
+          "صفحه پیدا نشد",
+          notFoundPage(
+            "صفحه‌ای که به دنبال آن هستید وجود ندارد."
+          )
+        ),
         404
       );
 
     } catch (error) {
-      return json({
-        ok: false,
-        error: error?.message || "خطای داخلی سرور."
-      }, 500);
+      return json(
+        {
+          ok: false,
+          error: error.message || "خطای داخلی سرور"
+        },
+        500
+      );
     }
   }
 };
@@ -678,139 +908,103 @@ export default {
 ========================================================= */
 
 async function initDB(env) {
-  await env.DB.prepare(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT NOT NULL UNIQUE,
-      email TEXT NOT NULL UNIQUE,
-      password_hash TEXT NOT NULL,
-      created_at INTEGER NOT NULL
-    )
-  `).run();
+  await env.DB.batch([
+    env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL UNIQUE,
+        email TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    `),
 
-  await env.DB.prepare(`
-    CREATE TABLE IF NOT EXISTS sessions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      token TEXT NOT NULL UNIQUE,
-      user_id INTEGER NOT NULL,
-      created_at INTEGER NOT NULL
-    )
-  `).run();
+    env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        token TEXT NOT NULL UNIQUE,
+        user_id INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    `),
 
-  await env.DB.prepare(`
-    CREATE TABLE IF NOT EXISTS products (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      description TEXT,
-      price INTEGER NOT NULL,
-      created_at INTEGER NOT NULL
-    )
-  `).run();
+    env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS products (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        slug TEXT NOT NULL UNIQUE,
+        description TEXT DEFAULT '',
+        price INTEGER DEFAULT 0,
+        image TEXT DEFAULT '',
+        category TEXT DEFAULT '',
+        stock INTEGER DEFAULT 0,
+        featured INTEGER DEFAULT 0,
+        active INTEGER DEFAULT 1,
+        created_at TEXT NOT NULL
+      )
+    `),
 
-  await env.DB.prepare(`
-    CREATE TABLE IF NOT EXISTS orders (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      total_price INTEGER NOT NULL,
-      status TEXT NOT NULL DEFAULT 'pending',
-      created_at INTEGER NOT NULL
-    )
-  `).run();
+    env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        total INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'pending',
+        created_at TEXT NOT NULL
+      )
+    `),
 
-  await env.DB.prepare(`
-    CREATE TABLE IF NOT EXISTS order_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      order_id INTEGER NOT NULL,
-      product_id INTEGER NOT NULL,
-      quantity INTEGER NOT NULL DEFAULT 1,
-      price INTEGER NOT NULL
-    )
-  `).run();
+    env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS order_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_id INTEGER NOT NULL,
+        product_id INTEGER NOT NULL,
+        quantity INTEGER DEFAULT 1,
+        price INTEGER DEFAULT 0
+      )
+    `),
 
-  await env.DB.prepare(`
-    CREATE TABLE IF NOT EXISTS admin_sessions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      token TEXT NOT NULL UNIQUE,
-      username TEXT NOT NULL,
-      created_at INTEGER NOT NULL
-    )
-  `).run();
+    env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS admin_sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        token TEXT NOT NULL UNIQUE,
+        username TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    `)
+  ]);
 }
 
 
 /* =========================================================
-   PRODUCTS
+   AUTH HELPERS
 ========================================================= */
 
-async function getProducts(env) {
-  const result = await env.DB.prepare(`
-    SELECT *
-    FROM products
-    ORDER BY id DESC
-  `).all();
-
-  return result.results || [];
-}
-
-async function getProduct(env, id) {
-  return await env.DB.prepare(`
-    SELECT *
-    FROM products
-    WHERE id = ?
-    LIMIT 1
-  `).bind(id).first();
-}
-
-
-/* =========================================================
-   PRICE
-========================================================= */
-
-function normalizeDigits(value) {
-  return String(value ?? "")
-    .replace(/[۰-۹]/g, d =>
-      String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))
-    )
-    .replace(/[٠-٩]/g, d =>
-      String("٠١٢٣٤٥٦٧٨٩".indexOf(d))
-    );
-}
-
-function normalizePrice(value) {
-  const clean = normalizeDigits(value)
-    .replace(/[^\d]/g, "");
-
-  return Number(clean || 0);
-}
-
-function formatPrice(value) {
-  return Number(value || 0)
-    .toLocaleString("fa-IR") + " تومان";
-}
-
-
-/* =========================================================
-   AUTH
-========================================================= */
-
-async function getCurrentUser(request, env) {
-  const token = getCookie(request, "session");
+async function getUser(request, env) {
+  const token = getCookie(
+    request,
+    "session"
+  );
 
   if (!token) {
     return null;
   }
 
-  const result = await env.DB.prepare(`
-    SELECT users.*
-    FROM sessions
-    JOIN users
-      ON users.id = sessions.user_id
-    WHERE sessions.token = ?
+  return await env.DB.prepare(`
+    SELECT
+      u.id,
+      u.username,
+      u.email
+    FROM sessions s
+    JOIN users u
+      ON u.id = s.user_id
+    WHERE s.token = ?
     LIMIT 1
-  `).bind(token).first();
-
-  return result || null;
+  `)
+    .bind(token)
+    .first();
 }
+
 
 async function getAdmin(request, env) {
   const token = getCookie(
@@ -822,98 +1016,142 @@ async function getAdmin(request, env) {
     return null;
   }
 
-  const result = await env.DB.prepare(`
-    SELECT *
+  return await env.DB.prepare(`
+    SELECT
+      username
     FROM admin_sessions
     WHERE token = ?
     LIMIT 1
-  `).bind(token).first();
-
-  return result || null;
+  `)
+    .bind(token)
+    .first();
 }
 
 
 /* =========================================================
-   PASSWORD / TOKEN
+   CRYPTO
 ========================================================= */
 
-async function hashPassword(password) {
-  const data = new TextEncoder().encode(password);
+async function sha256(value) {
+  const data =
+    new TextEncoder().encode(value);
 
-  const hash = await crypto.subtle.digest(
-    "SHA-256",
-    data
-  );
+  const hash =
+    await crypto.subtle.digest(
+      "SHA-256",
+      data
+    );
 
-  return [...new Uint8Array(hash)]
-    .map(x =>
-      x.toString(16).padStart(2, "0")
+  return Array.from(
+    new Uint8Array(hash)
+  )
+    .map(
+      byte =>
+        byte
+          .toString(16)
+          .padStart(2, "0")
     )
     .join("");
 }
 
-function randomToken() {
-  return crypto.randomUUID() +
-    "-" +
-    crypto.randomUUID();
-}
-
 
 /* =========================================================
-   REQUEST
+   COOKIES
 ========================================================= */
 
-async function readJSON(request) {
-  try {
-    return await request.json();
-  } catch {
-    return {};
-  }
-}
-
 function getCookie(request, name) {
-  const cookie = request.headers.get("Cookie") || "";
-  const parts = cookie.split(";");
+  const cookie =
+    request.headers.get("Cookie") || "";
+
+  const parts =
+    cookie.split(";");
 
   for (const part of parts) {
-    const [key, ...rest] = part.trim().split("=");
+    const item = part.trim();
 
-    if (key === name) {
-      return rest.join("=");
+    if (
+      item.startsWith(name + "=")
+    ) {
+      return decodeURIComponent(
+        item.substring(
+          name.length + 1
+        )
+      );
     }
   }
 
   return null;
 }
 
-function cookieHeader(name, value, remove = false) {
-  if (remove) {
-    return `${name}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
-  }
 
-  return `${name}=${value}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`;
+function sessionCookie(token) {
+  return [
+    "session=" +
+      encodeURIComponent(token),
+    "Path=/",
+    "HttpOnly",
+    "Secure",
+    "SameSite=Lax",
+    "Max-Age=2592000"
+  ].join("; ");
+}
+
+
+function adminCookie(token) {
+  return [
+    "admin_session=" +
+      encodeURIComponent(token),
+    "Path=/",
+    "HttpOnly",
+    "Secure",
+    "SameSite=Lax",
+    "Max-Age=86400"
+  ].join("; ");
+}
+
+
+function clearCookie(name) {
+  return [
+    name + "=",
+    "Path=/",
+    "HttpOnly",
+    "Secure",
+    "SameSite=Lax",
+    "Max-Age=0"
+  ].join("; ");
 }
 
 
 /* =========================================================
-   RESPONSE
+   RESPONSE HELPERS
 ========================================================= */
 
-function json(data, status = 200) {
+function json(
+  data,
+  status = 200,
+  extraHeaders = {}
+) {
+  const headers = {
+    "Content-Type":
+      "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+    ...extraHeaders
+  };
+
   return new Response(
     JSON.stringify(data),
     {
       status,
-      headers: {
-        "Content-Type":
-          "application/json; charset=utf-8",
-        "Cache-Control": "no-store"
-      }
+      headers
     }
   );
 }
 
-function html(content, status = 200) {
+
+function html(
+  content,
+  status = 200
+) {
   return new Response(
     content,
     {
@@ -921,1130 +1159,96 @@ function html(content, status = 200) {
       headers: {
         "Content-Type":
           "text/html; charset=utf-8",
-        "Cache-Control": "no-store"
+        "Cache-Control":
+          "no-store"
       }
     }
   );
 }
 
 
-/* =========================================================
-   SECURITY / HTML
-========================================================= */
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-function statusLabel(status) {
-  const labels = {
-    pending: "در انتظار پرداخت",
-    paid: "پرداخت شده",
-    processing: "در حال پردازش",
-    completed: "تکمیل شده",
-    cancelled: "لغو شده"
-  };
-
-  return labels[status] || status;
+function now() {
+  return new Date().toISOString();
 }
 
 
 /* =========================================================
-   BASE PAGE
+   LAYOUT
 ========================================================= */
 
-function basePage(
+function pageLayout(
   title,
-  content,
-  scripts = ""
+  content
 ) {
   return `<!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width,initial-scale=1">
 
-<meta
-  name="viewport"
-  content="width=device-width, initial-scale=1.0"
->
+<meta name="theme-color"
+      content="#0f172a">
 
-<title>${escapeHtml(title)} | ${STORE_NAME}</title>
+<meta name="description"
+      content="${escapeHtml(
+        STORE_NAME +
+        "؛ فروشگاه آنلاین کالا و محصولات دیجیتال"
+      )}">
 
-<meta
-  name="theme-color"
-  content="#0f172a"
->
-
-<meta
-  name="description"
-  content="فروشگاه دیجیتال ${STORE_EN}"
->
+<title>${escapeHtml(
+    title + " | " + STORE_NAME
+  )}</title>
 
 <style>
-
-*{
-  box-sizing:border-box;
-}
-
-html{
-  scroll-behavior:smooth;
-}
-
-body{
-  margin:0;
-  font-family:
-    Tahoma,
-    Arial,
-    sans-serif;
-
-  color:#172033;
-
-  background:
-    radial-gradient(
-      circle at top right,
-      rgba(37,99,235,.12),
-      transparent 35%
-    ),
-    radial-gradient(
-      circle at bottom left,
-      rgba(20,184,166,.10),
-      transparent 35%
-    ),
-    #f4f7fb;
-
-  min-height:100vh;
-}
-
-a{
-  color:inherit;
-  text-decoration:none;
-}
-
-button,
-input,
-textarea,
-select{
-  font-family:inherit;
-}
-
-button{
-  cursor:pointer;
-}
-
-.container{
-  width:min(1120px, calc(100% - 28px));
-  margin:auto;
-}
-
-
-/* =========================
-   HEADER
-========================= */
-
-header{
-  position:sticky;
-  top:0;
-  z-index:50;
-
-  background:
-    rgba(255,255,255,.88);
-
-  backdrop-filter:
-    blur(18px);
-
-  -webkit-backdrop-filter:
-    blur(18px);
-
-  border-bottom:
-    1px solid #e2e8f0;
-}
-
-.nav{
-  min-height:76px;
-
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-
-  gap:20px;
-}
-
-.brand{
-  display:flex;
-  align-items:center;
-  gap:12px;
-
-  font-weight:900;
-}
-
-.logo{
-  width:46px;
-  height:46px;
-
-  border-radius:15px;
-
-  display:grid;
-  place-items:center;
-
-  color:white;
-
-  font-size:20px;
-  font-weight:900;
-
-  background:
-    linear-gradient(
-      135deg,
-      #0f172a,
-      #1e3a8a
-    );
-
-  box-shadow:
-    0 10px 25px
-    rgba(15,23,42,.25);
-}
-
-.brand-title{
-  font-size:17px;
-}
-
-.brand-en{
-  display:block;
-
-  color:#64748b;
-
-  font-size:11px;
-  margin-top:3px;
-
-  direction:ltr;
-  text-align:right;
-}
-
-.nav-links{
-  display:flex;
-  align-items:center;
-  gap:8px;
-
-  flex-wrap:wrap;
-}
-
-.nav-links a{
-  padding:10px 14px;
-
-  border-radius:12px;
-
-  color:#475569;
-
-  font-size:14px;
-
-  transition:
-    .2s ease;
-}
-
-.nav-links a:hover{
-  color:#fff;
-
-  background:
-    linear-gradient(
-      135deg,
-      #0f172a,
-      #1e3a8a
-    );
-
-  transform:translateY(-1px);
-}
-
-
-/* =========================
-   MAIN
-========================= */
-
-main{
-  padding:
-    35px 0
-    60px;
-}
-
-.hero{
-  position:relative;
-  overflow:hidden;
-
-  padding:
-    60px 30px;
-
-  border-radius:30px;
-
-  color:#fff;
-
-  background:
-    linear-gradient(
-      135deg,
-      #0f172a 0%,
-      #1e3a8a 52%,
-      #0f766e 100%
-    );
-
-  box-shadow:
-    0 25px 70px
-    rgba(15,23,42,.25);
-
-  margin-bottom:32px;
-}
-
-.hero:before{
-  content:"";
-
-  position:absolute;
-
-  width:260px;
-  height:260px;
-
-  border-radius:50%;
-
-  background:
-    rgba(20,184,166,.18);
-
-  top:-100px;
-  left:-70px;
-}
-
-.hero:after{
-  content:"";
-
-  position:absolute;
-
-  width:220px;
-  height:220px;
-
-  border-radius:50%;
-
-  background:
-    rgba(37,99,235,.18);
-
-  bottom:-100px;
-  right:-50px;
-}
-
-.hero-content{
-  position:relative;
-  z-index:2;
-}
-
-.eyebrow{
-  display:inline-block;
-
-  padding:
-    8px 13px;
-
-  border-radius:999px;
-
-  background:
-    rgba(20,184,166,.18);
-
-  border:
-    1px solid
-    rgba(255,255,255,.2);
-
-  font-size:12px;
-
-  margin-bottom:16px;
-}
-
-.hero h1{
-  margin:0 0 14px;
-
-  font-size:
-    clamp(30px, 6vw, 56px);
-
-  line-height:1.15;
-}
-
-.hero p{
-  max-width:650px;
-
-  line-height:2;
-
-  margin:0;
-
-  color:
-    rgba(255,255,255,.9);
-}
-
-
-/* =========================
-   BUTTONS
-========================= */
-
-.btn{
-  border:0;
-
-  display:inline-flex;
-
-  align-items:center;
-  justify-content:center;
-
-  gap:8px;
-
-  min-height:46px;
-
-  padding:
-    0 18px;
-
-  border-radius:14px;
-
-  font-weight:800;
-
-  transition:
-    .2s ease;
-}
-
-.btn:hover{
-  transform:translateY(-2px);
-
-  box-shadow:
-    0 12px 25px
-    rgba(15,23,42,.14);
-}
-
-.btn-primary{
-  color:white;
-
-  background:
-    linear-gradient(
-      135deg,
-      #0f766e,
-      #14b8a6
-    );
-}
-
-.btn-white{
-  color:#0f172a;
-
-  background:white;
-}
-
-.btn-danger{
-  color:white;
-
-  background:
-    linear-gradient(
-      135deg,
-      #dc2626,
-      #ef4444
-    );
-}
-
-.btn-success{
-  color:white;
-
-  background:
-    linear-gradient(
-      135deg,
-      #0f766e,
-      #14b8a6
-    );
-}
-
-.btn-small{
-  min-height:38px;
-
-  padding:
-    0 13px;
-
-  border-radius:10px;
-
-  font-size:13px;
-}
-
-
-/* =========================
-   SECTIONS
-========================= */
-
-.section-title{
-  display:flex;
-
-  align-items:end;
-  justify-content:space-between;
-
-  gap:15px;
-
-  margin:
-    35px 0 18px;
-}
-
-.section-title h2{
-  margin:0;
-
-  font-size:24px;
-}
-
-.section-title p{
-  margin:0;
-
-  color:#64748b;
-
-  font-size:13px;
-}
-
-
-/* =========================
-   FEATURES
-========================= */
-
-.features{
-  display:grid;
-
-  grid-template-columns:
-    repeat(3,1fr);
-
-  gap:18px;
-}
-
-.feature{
-  padding:22px;
-
-  border-radius:22px;
-
-  background:
-    rgba(255,255,255,.9);
-
-  border:
-    1px solid #e2e8f0;
-
-  box-shadow:
-    0 10px 35px
-    rgba(15,23,42,.07);
-
-  transition:.2s ease;
-}
-
-.feature:hover{
-  transform:
-    translateY(-5px);
-
-  box-shadow:
-    0 18px 45px
-    rgba(15,23,42,.11);
-}
-
-.feature-icon{
-  width:50px;
-  height:50px;
-
-  display:grid;
-  place-items:center;
-
-  border-radius:16px;
-
-  color:white;
-
-  font-size:21px;
-
-  margin-bottom:15px;
-
-  background:
-    linear-gradient(
-      135deg,
-      #0f172a,
-      #1e3a8a
-    );
-}
-
-.feature:nth-child(2) .feature-icon{
-  background:
-    linear-gradient(
-      135deg,
-      #2563eb,
-      #06b6d4
-    );
-}
-
-.feature:nth-child(3) .feature-icon{
-  background:
-    linear-gradient(
-      135deg,
-      #f97316,
-      #fb923c
-    );
-}
-
-.feature h3{
-  margin:
-    0 0 8px;
-}
-
-.feature p{
-  margin:0;
-
-  color:#64748b;
-
-  line-height:1.9;
-
-  font-size:14px;
-}
-
-
-/* =========================
-   PRODUCTS
-========================= */
-
-.products{
-  display:grid;
-
-  grid-template-columns:
-    repeat(3,1fr);
-
-  gap:20px;
-}
-
-.product{
-  overflow:hidden;
-
-  border-radius:23px;
-
-  background:white;
-
-  border:
-    1px solid #e2e8f0;
-
-  box-shadow:
-    0 12px 38px
-    rgba(15,23,42,.08);
-
-  transition:
-    .25s ease;
-}
-
-.product:hover{
-  transform:
-    translateY(-6px);
-
-  box-shadow:
-    0 22px 50px
-    rgba(15,23,42,.13);
-}
-
-.product-top{
-  height:150px;
-
-  display:grid;
-  place-items:center;
-
-  color:white;
-
-  font-size:40px;
-
-  background:
-    linear-gradient(
-      135deg,
-      #0f172a,
-      #1e3a8a
-    );
-}
-
-.product:nth-child(3n+2) .product-top{
-  background:
-    linear-gradient(
-      135deg,
-      #2563eb,
-      #06b6d4
-    );
-}
-
-.product:nth-child(3n) .product-top{
-  background:
-    linear-gradient(
-      135deg,
-      #f97316,
-      #fb923c
-    );
-}
-
-.product-body{
-  padding:20px;
-}
-
-.product h3{
-  margin:
-    0 0 8px;
-
-  font-size:18px;
-}
-
-.product p{
-  color:#64748b;
-
-  line-height:1.8;
-
-  min-height:52px;
-
-  font-size:13px;
-}
-
-.price{
-  color:#ea580c;
-
-  font-size:20px;
-
-  font-weight:900;
-
-  margin:
-    15px 0;
-}
-
-
-/* =========================
-   CARDS / FORMS
-========================= */
-
-.card{
-  background:white;
-
-  border-radius:24px;
-
-  padding:24px;
-
-  border:
-    1px solid #e2e8f0;
-
-  box-shadow:
-    0 12px 40px
-    rgba(15,23,42,.07);
-
-  margin-bottom:20px;
-}
-
-.form{
-  max-width:550px;
-  margin:auto;
-}
-
-.form-group{
-  margin-bottom:15px;
-}
-
-label{
-  display:block;
-
-  margin-bottom:7px;
-
-  font-size:13px;
-
-  font-weight:700;
-
-  color:#475569;
-}
-
-input,
-textarea,
-select{
-  width:100%;
-
-  border:
-    1px solid #dbe2ea;
-
-  border-radius:13px;
-
-  padding:
-    13px 14px;
-
-  background:#f8fafc;
-
-  color:#172033;
-
-  outline:none;
-
-  transition:.2s ease;
-}
-
-input:focus,
-textarea:focus,
-select:focus{
-  border-color:#14b8a6;
-
-  box-shadow:
-    0 0 0 4px
-    rgba(20,184,166,.12);
-
-  background:white;
-}
-
-textarea{
-  min-height:110px;
-
-  resize:vertical;
-}
-
-
-/* =========================
-   TABLE
-========================= */
-
-.table-wrap{
-  overflow-x:auto;
-}
-
-table{
-  width:100%;
-
-  border-collapse:collapse;
-
-  min-width:650px;
-}
-
-th,
-td{
-  padding:13px;
-
-  border-bottom:
-    1px solid #e8edf3;
-
-  text-align:right;
-
-  font-size:13px;
-}
-
-th{
-  color:#0f766e;
-
-  background:#ecfeff;
-}
-
-
-/* =========================
-   BADGES
-========================= */
-
-.badge{
-  display:inline-flex;
-
-  align-items:center;
-
-  padding:
-    6px 10px;
-
-  border-radius:999px;
-
-  font-size:11px;
-
-  font-weight:800;
-
-  background:#ecfeff;
-
-  color:#0f766e;
-}
-
-
-/* =========================
-   PRODUCT DETAIL
-========================= */
-
-.product-detail{
-  display:grid;
-
-  grid-template-columns:
-    .9fr 1.1fr;
-
-  gap:28px;
-
-  align-items:stretch;
-}
-
-.product-cover{
-  min-height:350px;
-
-  border-radius:28px;
-
-  display:grid;
-
-  place-items:center;
-
-  color:white;
-
-  font-size:80px;
-
-  background:
-    linear-gradient(
-      135deg,
-      #0f172a,
-      #1e3a8a 55%,
-      #0f766e
-    );
-
-  box-shadow:
-    0 25px 60px
-    rgba(15,23,42,.2);
-}
-
-.product-detail-info{
-  background:white;
-
-  border-radius:28px;
-
-  padding:30px;
-
-  box-shadow:
-    0 15px 45px
-    rgba(15,23,42,.08);
-}
-
-.product-detail-info h1{
-  margin-top:0;
-
-  font-size:32px;
-}
-
-.description{
-  color:#64748b;
-
-  line-height:2;
-
-  white-space:pre-wrap;
-}
-
-
-/* =========================
-   EMPTY
-========================= */
-
-.empty{
-  padding:45px 20px;
-
-  text-align:center;
-
-  border-radius:22px;
-
-  background:white;
-
-  color:#64748b;
-
-  box-shadow:
-    0 10px 35px
-    rgba(15,23,42,.06);
-}
-
-
-/* =========================
-   ALERT
-========================= */
-
-.alert{
-  padding:14px 16px;
-
-  border-radius:14px;
-
-  background:#ecfeff;
-
-  color:#0f766e;
-
-  margin-bottom:16px;
-
-  font-size:13px;
-}
-
-
-/* =========================
-   FOOTER
-========================= */
-
-footer{
-  padding:
-    30px 0;
-
-  border-top:
-    1px solid #e2e8f0;
-
-  background:
-    rgba(255,255,255,.8);
-
-  color:#64748b;
-
-  text-align:center;
-
-  font-size:13px;
-}
-
-
-/* =========================
-   MOBILE
-========================= */
-
-@media(max-width:800px){
-
-  .nav{
-    padding:
-      10px 0;
-
-    align-items:flex-start;
-
-    flex-direction:column;
-  }
-
-  .nav-links{
-    width:100%;
-
-    overflow-x:auto;
-
-    flex-wrap:nowrap;
-
-    padding-bottom:3px;
-  }
-
-  .nav-links a{
-    white-space:nowrap;
-  }
-
-  .hero{
-    padding:
-      42px 22px;
-
-    border-radius:24px;
-  }
-
-  .features,
-  .products{
-    grid-template-columns:1fr;
-  }
-
-  .product-detail{
-    grid-template-columns:1fr;
-  }
-
-  .product-cover{
-    min-height:240px;
-  }
-
-  .product-detail-info{
-    padding:22px;
-  }
-
-  .card{
-    padding:18px;
-  }
-}
-
-@media(max-width:480px){
-
-  .container{
-    width:
-      calc(100% - 20px);
-  }
-
-  main{
-    padding-top:22px;
-  }
-
-  .hero h1{
-    font-size:30px;
-  }
-
-  .section-title{
-    align-items:flex-start;
-    flex-direction:column;
-  }
-
-  .btn{
-    width:100%;
-  }
-
-}
-
-
-/* =========================
-   ANIMATION
-========================= */
-
-@keyframes fadeUp{
-  from{
-    opacity:0;
-    transform:translateY(12px);
-  }
-
-  to{
-    opacity:1;
-    transform:translateY(0);
-  }
-}
-
-.hero,
-.feature,
-.product,
-.card{
-  animation:
-    fadeUp .45s ease both;
-}
-
+${globalCSS()}
 </style>
 </head>
 
 <body>
 
-<header>
-  <div class="container nav">
+<header class="site-header">
+  <div class="container header-inner">
 
-    <a href="/" class="brand">
-
-      <div class="logo">
-        D
-      </div>
-
-      <div>
-        <div class="brand-title">
-          ${STORE_NAME}
-        </div>
-
-        <span class="brand-en">
-          ${STORE_EN}
-        </span>
-      </div>
-
+    <a class="brand" href="/">
+      <span class="brand-mark">D</span>
+      <span>
+        <strong>${STORE_NAME}</strong>
+        <small>${STORE_EN}</small>
+      </span>
     </a>
 
-    <nav class="nav-links">
-
-      <a href="/">
-        خانه
-      </a>
-
-      <a href="/#products">
-        محصولات
-      </a>
-
-      <a href="/account">
-        حساب من
-      </a>
-
-      <a href="/admin">
-        مدیریت
-      </a>
-
+    <nav class="nav">
+      <a href="/">خانه</a>
+      <a href="/#products">محصولات</a>
+      <a href="/#features">امکانات</a>
+      <a href="/account">حساب کاربری</a>
     </nav>
 
   </div>
 </header>
 
 <main>
-  <div class="container">
-    ${content}
-  </div>
+${content}
 </main>
 
-<footer>
-  <div class="container">
-    ${STORE_NAME} © 2026
-    <br>
-    <span style="font-size:11px">
-      ${STORE_EN} Digital Store
-    </span>
+<footer class="footer">
+  <div class="container footer-inner">
+    <div>
+      <strong>${STORE_NAME}</strong>
+      <span>فروشگاه آنلاین ${STORE_EN}</span>
+    </div>
+
+    <div>
+      © ${new Date().getFullYear()}
+      ${STORE_NAME}
+    </div>
   </div>
 </footer>
 
-${scripts}
+<script>
+${clientJS()}
+</script>
 
 </body>
 </html>`;
@@ -2052,191 +1256,854 @@ ${scripts}
 
 
 /* =========================================================
-   HOME
+   GLOBAL CSS
 ========================================================= */
 
-async function homePage(env) {
-  const products = await getProducts(env);
+function globalCSS() {
+  return `
+* {
+  box-sizing: border-box;
+}
 
-  const productHTML = products.length
-    ? products.map(product => `
-      <article class="product">
+html {
+  scroll-behavior: smooth;
+}
 
-        <div class="product-top">
-          ✦
-        </div>
+body {
+  margin: 0;
+  font-family:
+    Tahoma,
+    Arial,
+    sans-serif;
 
-        <div class="product-body">
+  background:
+    radial-gradient(
+      circle at 10% 10%,
+      rgba(37,99,235,.08),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at 90% 20%,
+      rgba(20,184,166,.08),
+      transparent 30%
+    ),
+    #f4f7fb;
 
-          <h3>
-            ${escapeHtml(product.name)}
-          </h3>
+  color: #172033;
+  line-height: 1.8;
+}
 
-          <p>
-            ${escapeHtml(
-              product.description || "محصول دیجیتال"
-            )}
-          </p>
+a {
+  color: inherit;
+  text-decoration: none;
+}
 
-          <div class="price">
-            ${formatPrice(product.price)}
-          </div>
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
 
-          <a
-            class="btn btn-primary"
-            href="/product/${product.id}"
-          >
-            مشاهده محصول
-          </a>
-
-        </div>
-
-      </article>
-    `).join("")
-    : `
-      <div class="empty">
-        هنوز محصولی ثبت نشده است.
-      </div>
-    `;
-
-  return basePage(
-    "فروشگاه دیجیتال",
-    `
-
-    <section class="hero">
-
-      <div class="hero-content">
-
-        <span class="eyebrow">
-          DIGITAL PRODUCTS • SIMPLE • MODERN
-        </span>
-
-        <h1>
-          فروشگاه دیجیتال
-          ${STORE_EN}
-        </h1>
-
-        <p>
-          ابزارهای دیجیتال برای شما
-          با تجربه‌ای ساده، سریع و مناسب موبایل.
-        </p>
-
-        <div style="margin-top:24px">
-
-          <a
-            href="#products"
-            class="btn btn-white"
-          >
-            مشاهده محصولات
-          </a>
-
-        </div>
-
-      </div>
-
-    </section>
-
-
-    <section>
-
-      <div class="section-title">
-
-        <div>
-          <h2>
-            چرا ${STORE_NAME}؟
-          </h2>
-
-          <p>
-            ساده، سریع و کاربردی
-          </p>
-        </div>
-
-      </div>
-
-      <div class="features">
-
-        <div class="feature">
-
-          <div class="feature-icon">
-            ⚡
-          </div>
-
-          <h3>
-            ساده و سریع
-          </h3>
-
-          <p>
-            خرید و استفاده از محصولات
-            با چند مرحله ساده.
-          </p>
-
-        </div>
-
-
-        <div class="feature">
-
-          <div class="feature-icon">
-            📱
-          </div>
-
-          <h3>
-            مناسب موبایل
-          </h3>
-
-          <p>
-            طراحی واکنش‌گرا برای
-            گوشی و تبلت.
-          </p>
-
-        </div>
-
-
-        <div class="feature">
-
-          <div class="feature-icon">
-            ✨
-          </div>
-
-          <h3>
-            محصولات دیجیتال
-          </h3>
-
-          <p>
-            دسترسی آسان به محصولات
-            و ابزارهای دیجیتال.
-          </p>
-
-        </div>
-
-      </div>
-
-    </section>
-
-
-    <section id="products">
-
-      <div class="section-title">
-
-        <div>
-          <h2>
-            محصولات
-          </h2>
-
-          <p>
-            محصولات موجود در فروشگاه
-          </p>
-        </div>
-
-      </div>
-
-      <div class="products">
-        ${productHTML}
-      </div>
-
-    </section>
-
-    `
+.container {
+  width: min(
+    1120px,
+    calc(100% - 32px)
   );
+
+  margin: 0 auto;
+}
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+
+  background:
+    rgba(255,255,255,.94);
+
+  backdrop-filter:
+    blur(12px);
+
+  border-bottom:
+    1px solid #e2e8f0;
+}
+
+.header-inner {
+  min-height: 76px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 20px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  color: #0f172a;
+}
+
+.brand-mark {
+  width: 44px;
+  height: 44px;
+
+  display: grid;
+  place-items: center;
+
+  border-radius: 14px;
+
+  color: white;
+  font-weight: 900;
+  font-size: 21px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #0f172a,
+      #2563eb
+    );
+
+  box-shadow:
+    0 10px 24px
+    rgba(15,23,42,.18);
+}
+
+.brand strong {
+  display: block;
+  font-size: 17px;
+}
+
+.brand small {
+  display: block;
+  color: #64748b;
+  font-size: 11px;
+  direction: ltr;
+  text-align: right;
+}
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.nav a {
+  padding: 8px 12px;
+  border-radius: 10px;
+  color: #475569;
+  font-size: 14px;
+}
+
+.nav a:hover {
+  color: #0f172a;
+  background: #eef2ff;
+}
+
+.hero {
+  padding: 70px 0 50px;
+}
+
+.hero-card {
+  overflow: hidden;
+  position: relative;
+
+  padding: 54px 42px;
+
+  border-radius: 28px;
+
+  color: white;
+
+  background:
+    linear-gradient(
+      135deg,
+      #0f172a 0%,
+      #1e3a8a 55%,
+      #0f766e 100%
+    );
+
+  box-shadow:
+    0 25px 60px
+    rgba(15,23,42,.20);
+}
+
+.hero-card::after {
+  content: "";
+  position: absolute;
+
+  width: 280px;
+  height: 280px;
+
+  border-radius: 50%;
+
+  background:
+    rgba(255,255,255,.07);
+
+  left: -90px;
+  bottom: -140px;
+}
+
+.hero h1 {
+  margin: 0 0 14px;
+
+  font-size:
+    clamp(30px, 6vw, 52px);
+
+  line-height: 1.35;
+}
+
+.hero p {
+  max-width: 680px;
+
+  margin: 0 0 28px;
+
+  color: #dbeafe;
+  font-size: 17px;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.btn {
+  border: 0;
+  cursor: pointer;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 44px;
+  padding: 9px 18px;
+
+  border-radius: 12px;
+
+  font-weight: 700;
+}
+
+.btn-primary {
+  color: white;
+
+  background:
+    linear-gradient(
+      135deg,
+      #0f766e,
+      #14b8a6
+    );
+
+  box-shadow:
+    0 10px 25px
+    rgba(15,118,110,.24);
+}
+
+.btn-primary:hover {
+  filter: brightness(1.05);
+}
+
+.btn-secondary {
+  color: #0f172a;
+  background: white;
+}
+
+.btn-orange {
+  color: white;
+
+  background:
+    linear-gradient(
+      135deg,
+      #f97316,
+      #fb923c
+    );
+}
+
+.section {
+  padding: 42px 0;
+}
+
+.section-title {
+  margin-bottom: 22px;
+}
+
+.section-title h2 {
+  margin: 0;
+  font-size: 28px;
+  color: #0f172a;
+}
+
+.section-title p {
+  margin: 4px 0 0;
+  color: #64748b;
+}
+
+.features {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      3,
+      minmax(0, 1fr)
+    );
+
+  gap: 18px;
+}
+
+.feature {
+  padding: 24px;
+
+  border-radius: 20px;
+
+  color: white;
+
+  min-height: 180px;
+
+  box-shadow:
+    0 16px 35px
+    rgba(15,23,42,.12);
+}
+
+.feature:nth-child(1) {
+  background:
+    linear-gradient(
+      135deg,
+      #0f172a,
+      #2563eb
+    );
+}
+
+.feature:nth-child(2) {
+  background:
+    linear-gradient(
+      135deg,
+      #1d4ed8,
+      #06b6d4
+    );
+}
+
+.feature:nth-child(3) {
+  background:
+    linear-gradient(
+      135deg,
+      #ea580c,
+      #fb923c
+    );
+}
+
+.feature-icon {
+  font-size: 30px;
+  margin-bottom: 8px;
+}
+
+.feature h3 {
+  margin: 0 0 6px;
+}
+
+.feature p {
+  margin: 0;
+  color: rgba(255,255,255,.88);
+}
+
+.products {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      3,
+      minmax(0, 1fr)
+    );
+
+  gap: 18px;
+}
+
+.product-card {
+  overflow: hidden;
+
+  background: white;
+
+  border:
+    1px solid #e2e8f0;
+
+  border-radius: 20px;
+
+  box-shadow:
+    0 12px 30px
+    rgba(15,23,42,.07);
+
+  transition:
+    transform .2s ease,
+    box-shadow .2s ease;
+}
+
+.product-card:hover {
+  transform:
+    translateY(-3px);
+
+  box-shadow:
+    0 18px 38px
+    rgba(15,23,42,.12);
+}
+
+.product-cover {
+  min-height: 190px;
+
+  display: grid;
+  place-items: center;
+
+  color: white;
+
+  font-size: 42px;
+  font-weight: 900;
+
+  background:
+    linear-gradient(
+      135deg,
+      #0f172a,
+      #2563eb,
+      #0f766e
+    );
+}
+
+.product-body {
+  padding: 20px;
+}
+
+.product-body h3 {
+  margin: 0 0 8px;
+  color: #0f172a;
+}
+
+.product-body p {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.product-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 12px;
+
+  margin-top: 18px;
+}
+
+.price {
+  color: #f97316;
+  font-weight: 900;
+}
+
+.empty {
+  padding: 35px;
+
+  text-align: center;
+
+  background: white;
+
+  border:
+    1px dashed #cbd5e1;
+
+  border-radius: 18px;
+
+  color: #64748b;
+}
+
+.card {
+  padding: 26px;
+
+  background: white;
+
+  border:
+    1px solid #e2e8f0;
+
+  border-radius: 20px;
+
+  box-shadow:
+    0 12px 30px
+    rgba(15,23,42,.06);
+}
+
+.form {
+  display: grid;
+  gap: 14px;
+}
+
+.form label {
+  display: grid;
+  gap: 6px;
+
+  color: #334155;
+  font-weight: 700;
+}
+
+.form input,
+.form textarea,
+.form select {
+  width: 100%;
+
+  padding: 12px 14px;
+
+  border:
+    1px solid #cbd5e1;
+
+  border-radius: 11px;
+
+  outline: none;
+
+  background: white;
+}
+
+.form textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.form input:focus,
+.form textarea:focus,
+.form select:focus {
+  border-color: #14b8a6;
+
+  box-shadow:
+    0 0 0 3px
+    rgba(20,184,166,.12);
+}
+
+.account-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      2,
+      minmax(0, 1fr)
+    );
+
+  gap: 20px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 12px;
+
+  text-align: right;
+
+  border-bottom:
+    1px solid #e2e8f0;
+}
+
+th {
+  background: #ecfeff;
+  color: #0f766e;
+}
+
+.badge {
+  display: inline-block;
+
+  padding: 4px 9px;
+
+  border-radius: 999px;
+
+  color: #0f766e;
+  background: #ccfbf1;
+
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-grid {
+  display: grid;
+
+  gap: 20px;
+}
+
+.product-detail {
+  display: grid;
+
+  grid-template-columns:
+    minmax(280px, 1fr)
+    minmax(280px, 1fr);
+
+  gap: 28px;
+}
+
+.product-detail-cover {
+  min-height: 360px;
+
+  display: grid;
+  place-items: center;
+
+  border-radius: 24px;
+
+  color: white;
+
+  font-size: 70px;
+  font-weight: 900;
+
+  background:
+    linear-gradient(
+      135deg,
+      #0f172a,
+      #2563eb,
+      #0f766e
+    );
+}
+
+.product-detail h1 {
+  margin-top: 0;
+
+  color: #0f172a;
+}
+
+.detail-price {
+  margin: 22px 0;
+
+  color: #f97316;
+
+  font-size: 30px;
+  font-weight: 900;
+}
+
+.footer {
+  margin-top: 60px;
+
+  border-top:
+    1px solid #e2e8f0;
+
+  background: white;
+}
+
+.footer-inner {
+  min-height: 100px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  color: #64748b;
+}
+
+.footer strong {
+  display: block;
+  color: #0f172a;
+}
+
+.footer span {
+  display: block;
+  font-size: 12px;
+}
+
+.notice {
+  padding: 13px 15px;
+
+  border-radius: 12px;
+
+  color: #0f766e;
+  background: #ecfeff;
+
+  border:
+    1px solid #a5f3fc;
+}
+
+.error {
+  padding: 13px 15px;
+
+  border-radius: 12px;
+
+  color: #991b1b;
+  background: #fef2f2;
+
+  border:
+    1px solid #fecaca;
+}
+
+.loading {
+  padding: 25px;
+  text-align: center;
+  color: #64748b;
+}
+
+@media (max-width: 850px) {
+  .header-inner {
+    align-items: flex-start;
+    flex-direction: column;
+
+    padding: 12px 0;
+  }
+
+  .nav {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .features,
+  .products,
+  .account-grid,
+  .product-detail {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-card {
+    padding: 38px 24px;
+  }
+
+  .footer-inner {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 22px 0;
+  }
+}
+
+@media (max-width: 500px) {
+  .container {
+    width:
+      calc(100% - 22px);
+  }
+
+  .hero {
+    padding-top: 28px;
+  }
+
+  .hero h1 {
+    font-size: 30px;
+  }
+
+  .section {
+    padding: 28px 0;
+  }
+
+  .product-cover {
+    min-height: 150px;
+  }
+}
+`;
+}
+
+
+/* =========================================================
+   HOME PAGE
+========================================================= */
+
+function homePage() {
+  return `
+<section class="hero">
+  <div class="container">
+
+    <div class="hero-card">
+
+      <h1>
+        ${STORE_NAME}
+      </h1>
+
+      <p>
+        فروشگاه آنلاین ${STORE_EN}؛
+        بستری ساده برای معرفی و خرید محصولات.
+      </p>
+
+      <div class="hero-actions">
+        <a
+          href="#products"
+          class="btn btn-secondary"
+        >
+          مشاهده محصولات
+        </a>
+
+        <a
+          href="/account"
+          class="btn btn-primary"
+        >
+          حساب کاربری
+        </a>
+      </div>
+
+    </div>
+
+  </div>
+</section>
+
+
+<section
+  id="features"
+  class="section"
+>
+  <div class="container">
+
+    <div class="section-title">
+      <h2>امکانات فروشگاه</h2>
+      <p>
+        تجربه‌ای ساده و سریع برای مشتری و مدیریت فروشگاه
+      </p>
+    </div>
+
+    <div class="features">
+
+      <div class="feature">
+        <div class="feature-icon">🛍️</div>
+        <h3>فروش آنلاین</h3>
+        <p>
+          نمایش محصولات و ثبت سفارش آنلاین.
+        </p>
+      </div>
+
+      <div class="feature">
+        <div class="feature-icon">⚡</div>
+        <h3>سریع و سبک</h3>
+        <p>
+          اجرا روی زیرساخت Cloudflare برای سرعت بالا.
+        </p>
+      </div>
+
+      <div class="feature">
+        <div class="feature-icon">🔐</div>
+        <h3>حساب کاربری</h3>
+        <p>
+          مدیریت حساب و مشاهده سفارش‌های ثبت‌شده.
+        </p>
+      </div>
+
+    </div>
+
+  </div>
+</section>
+
+
+<section
+  id="products"
+  class="section"
+>
+  <div class="container">
+
+    <div class="section-title">
+      <h2>محصولات</h2>
+      <p>
+        محصولات موجود در فروشگاه
+      </p>
+    </div>
+
+    <div
+      id="products-list"
+      class="products"
+    >
+      <div class="loading">
+        در حال دریافت محصولات...
+      </div>
+    </div>
+
+  </div>
+</section>
+`;
 }
 
 
@@ -2245,133 +2112,82 @@ async function homePage(env) {
 ========================================================= */
 
 function productPage(product) {
-  return basePage(
-    product.name,
-    `
+  const image = product.image
+    ? `<img
+         src="${escapeAttr(product.image)}"
+         alt="${escapeAttr(product.name)}"
+         style="width:100%;height:100%;object-fit:cover;border-radius:24px;"
+       >`
+    : "D";
+
+  return `
+<section class="section">
+  <div class="container">
 
     <div class="product-detail">
 
-      <div class="product-cover">
-        ✦
+      <div class="product-detail-cover">
+        ${image}
       </div>
 
-      <div class="product-detail-info">
-
-        <span class="badge">
-          محصول دیجیتال
-        </span>
+      <div class="card">
 
         <h1>
           ${escapeHtml(product.name)}
         </h1>
 
-        <div class="price">
+        ${
+          product.category
+            ? `
+              <span class="badge">
+                ${escapeHtml(product.category)}
+              </span>
+            `
+            : ""
+        }
+
+        <div class="detail-price">
           ${formatPrice(product.price)}
         </div>
 
-        <div class="description">
+        <p>
           ${escapeHtml(
             product.description ||
-            "توضیحات محصول ثبت نشده است."
+            "توضیحی برای این محصول ثبت نشده است."
           )}
-        </div>
+        </p>
 
-        <div style="margin-top:25px">
+        <p>
+          موجودی:
+          <strong>
+            ${Number(product.stock || 0)}
+          </strong>
+        </p>
 
-          <button
-            class="btn btn-primary"
-            onclick="createOrder(${product.id})"
-          >
-            ثبت سفارش
-          </button>
-
-        </div>
-
-        <div
-          id="message"
-          style="margin-top:15px"
-        ></div>
+        ${
+          Number(product.stock || 0) > 0
+            ? `
+              <button
+                class="btn btn-primary"
+                onclick="addToCart(${Number(product.id)})"
+              >
+                افزودن به سبد خرید
+              </button>
+            `
+            : `
+              <div class="error">
+                این محصول در حال حاضر ناموجود است.
+              </div>
+            `
+        }
 
       </div>
 
     </div>
 
-
-    <script>
-
-    async function createOrder(productId){
-
-      const message =
-        document.getElementById("message");
-
-      message.innerHTML =
-        '<div class="alert">در حال ثبت سفارش...</div>';
-
-      try{
-
-        const response =
-          await fetch("/api/orders",{
-            method:"POST",
-
-            headers:{
-              "Content-Type":
-                "application/json"
-            },
-
-            body:JSON.stringify({
-              productId
-            })
-          });
-
-        const data =
-          await response.json();
-
-        if(!data.ok){
-
-          message.innerHTML =
-            '<div class="alert">' +
-            escapeText(data.error || "خطا") +
-            '</div>';
-
-          if(response.status === 401){
-            setTimeout(()=>{
-              location.href="/account";
-            },1000);
-          }
-
-          return;
-        }
-
-        message.innerHTML =
-          '<div class="alert">' +
-          'سفارش شما با موفقیت ثبت شد.' +
-          '<br>شماره سفارش: ' +
-          data.orderId +
-          '</div>';
-
-      }catch(error){
-
-        message.innerHTML =
-          '<div class="alert">' +
-          'خطا در ارتباط با سرور.' +
-          '</div>';
-      }
-    }
-
-    function escapeText(text){
-
-      const div =
-        document.createElement("div");
-
-      div.textContent = text;
-
-      return div.innerHTML;
-    }
-
-    </script>
-
-    `
-  );
+  </div>
+</section>
+`;
 }
 
 
@@ -2380,501 +2196,130 @@ function productPage(product) {
 ========================================================= */
 
 function accountPage() {
-  return basePage(
-    "حساب کاربری",
-    `
-
-    <div class="section-title">
-
-      <div>
-        <h2>
-          حساب کاربری
-        </h2>
-
-        <p>
-          مدیریت حساب و سفارش‌های ${STORE_NAME}
-        </p>
-      </div>
-
-    </div>
-
+  return `
+<section class="section">
+  <div class="container">
 
     <div
       id="account-area"
-      class="card"
+      class="account-grid"
     >
-      در حال بررسی حساب...
-    </div>
 
+      <div class="card">
 
-    <script>
+        <h2>ورود</h2>
 
-    async function loadAccount(){
+        <form
+          id="login-form"
+          class="form"
+        >
 
-      const area =
-        document.getElementById(
-          "account-area"
-        );
-
-      try{
-
-        const response =
-          await fetch("/api/me");
-
-        const data =
-          await response.json();
-
-        if(data.loggedIn){
-
-          await loadLoggedAccount(data.user);
-
-        }else{
-
-          showLogin();
-
-        }
-
-      }catch(error){
-
-        area.innerHTML =
-          '<div class="alert">' +
-          'خطا در ارتباط با سرور.' +
-          '</div>';
-
-      }
-    }
-
-
-    function showLogin(){
-
-      document.getElementById(
-        "account-area"
-      ).innerHTML = `
-
-        <div class="form">
-
-          <h3>
-            ورود
-          </h3>
-
-          <div class="form-group">
-
-            <label>
-              نام کاربری یا ایمیل
-            </label>
+          <label>
+            نام کاربری یا ایمیل
 
             <input
-              id="login"
+              name="username"
               autocomplete="username"
+              required
             >
+          </label>
 
-          </div>
-
-
-          <div class="form-group">
-
-            <label>
-              رمز عبور
-            </label>
+          <label>
+            رمز عبور
 
             <input
-              id="loginPassword"
               type="password"
+              name="password"
               autocomplete="current-password"
+              required
             >
-
-          </div>
-
+          </label>
 
           <button
             class="btn btn-primary"
-            onclick="login()"
+            type="submit"
           >
             ورود
           </button>
 
+        </form>
 
-          <hr
-            style="
-              margin:30px 0;
-              border:0;
-              border-top:
-              1px solid #e2e8f0;
-            "
-          >
+        <div
+          id="login-message"
+          style="margin-top:12px;"
+        ></div>
 
-
-          <h3>
-            ثبت‌نام
-          </h3>
+      </div>
 
 
-          <div class="form-group">
+      <div class="card">
 
-            <label>
-              نام کاربری
-            </label>
+        <h2>ثبت‌نام</h2>
 
-            <input id="registerUsername">
+        <form
+          id="register-form"
+          class="form"
+        >
 
-          </div>
-
-
-          <div class="form-group">
-
-            <label>
-              ایمیل
-            </label>
+          <label>
+            نام کاربری
 
             <input
-              id="registerEmail"
+              name="username"
+              autocomplete="username"
+              required
+            >
+          </label>
+
+          <label>
+            ایمیل
+
+            <input
               type="email"
+              name="email"
+              autocomplete="email"
+              required
             >
+          </label>
 
-          </div>
-
-
-          <div class="form-group">
-
-            <label>
-              رمز عبور
-            </label>
+          <label>
+            رمز عبور
 
             <input
-              id="registerPassword"
               type="password"
+              name="password"
+              autocomplete="new-password"
+              minlength="6"
+              required
             >
-
-          </div>
-
+          </label>
 
           <button
-            class="btn btn-success"
-            onclick="register()"
+            class="btn btn-orange"
+            type="submit"
           >
             ایجاد حساب
           </button>
 
-
-          <div
-            id="account-message"
-            style="margin-top:15px"
-          ></div>
-
-        </div>
-      `;
-    }
-
-
-    async function login(){
-
-      const message =
-        document.getElementById(
-          "account-message"
-        );
-
-      const loginValue =
-        document.getElementById(
-          "login"
-        ).value.trim();
-
-      const password =
-        document.getElementById(
-          "loginPassword"
-        ).value;
-
-      const response =
-        await fetch(
-          "/api/login",
-          {
-            method:"POST",
-
-            headers:{
-              "Content-Type":
-                "application/json"
-            },
-
-            body:JSON.stringify({
-              login:loginValue,
-              password
-            })
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if(!data.ok){
-
-        message.innerHTML =
-          '<div class="alert">' +
-          escapeText(
-            data.error || "خطا"
-          ) +
-          '</div>';
-
-        return;
-      }
-
-      location.reload();
-    }
-
-
-    async function register(){
-
-      const message =
-        document.getElementById(
-          "account-message"
-        );
-
-      const username =
-        document.getElementById(
-          "registerUsername"
-        ).value.trim();
-
-      const email =
-        document.getElementById(
-          "registerEmail"
-        ).value.trim();
-
-      const password =
-        document.getElementById(
-          "registerPassword"
-        ).value;
-
-      const response =
-        await fetch(
-          "/api/register",
-          {
-            method:"POST",
-
-            headers:{
-              "Content-Type":
-                "application/json"
-            },
-
-            body:JSON.stringify({
-              username,
-              email,
-              password
-            })
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if(!data.ok){
-
-        message.innerHTML =
-          '<div class="alert">' +
-          escapeText(
-            data.error || "خطا"
-          ) +
-          '</div>';
-
-        return;
-      }
-
-      location.reload();
-    }
-
-
-    async function loadLoggedAccount(user){
-
-      const area =
-        document.getElementById(
-          "account-area"
-        );
-
-      let orders = [];
-
-      try{
-
-        const response =
-          await fetch("/api/orders");
-
-        const data =
-          await response.json();
-
-        if(data.ok){
-          orders = data.orders || [];
-        }
-
-      }catch(e){}
-
-
-      const ordersHTML =
-        orders.length
-        ? `
-          <div class="table-wrap">
-
-            <table>
-
-              <thead>
-
-                <tr>
-                  <th>شماره</th>
-                  <th>مبلغ</th>
-                  <th>وضعیت</th>
-                  <th>تاریخ</th>
-                </tr>
-
-              </thead>
-
-              <tbody>
-
-                ${orders.map(order => `
-
-                  <tr>
-
-                    <td>
-                      #${order.id}
-                    </td>
-
-                    <td>
-                      ${Number(
-                        order.total_price || 0
-                      ).toLocaleString("fa-IR")}
-                      تومان
-                    </td>
-
-                    <td>
-                      <span class="badge">
-                        ${statusText(
-                          order.status
-                        )}
-                      </span>
-                    </td>
-
-                    <td>
-                      ${new Date(
-                        order.created_at
-                      ).toLocaleDateString(
-                        "fa-IR"
-                      )}
-                    </td>
-
-                  </tr>
-
-                `).join("")}
-
-              </tbody>
-
-            </table>
-
-          </div>
-        `
-        : `
-          <div class="empty">
-            هنوز سفارشی ندارید.
-          </div>
-        `;
-
-
-      area.innerHTML = `
+        </form>
 
         <div
-          style="
-            display:flex;
-            align-items:center;
-            justify-content:space-between;
-            gap:15px;
-            flex-wrap:wrap;
-          "
-        >
+          id="register-message"
+          style="margin-top:12px;"
+        ></div>
 
-          <div>
+      </div>
 
-            <span class="badge">
-              حساب کاربری
-            </span>
+    </div>
 
-            <h2>
-              ${escapeText(user.username)}
-            </h2>
+    <div
+      id="orders-area"
+      style="margin-top:22px;"
+    ></div>
 
-            <p>
-              ${escapeText(user.email)}
-            </p>
-
-          </div>
-
-
-          <button
-            class="btn btn-danger"
-            onclick="logout()"
-          >
-            خروج
-          </button>
-
-        </div>
-
-
-        <hr
-          style="
-            border:0;
-            border-top:
-            1px solid #e2e8f0;
-            margin:25px 0;
-          "
-        >
-
-
-        <h3>
-          سفارش‌های من
-        </h3>
-
-        ${ordersHTML}
-
-      `;
-    }
-
-
-    async function logout(){
-
-      await fetch(
-        "/api/logout",
-        {
-          method:"POST"
-        }
-      );
-
-      location.reload();
-    }
-
-
-    function statusText(status){
-
-      const labels = {
-        pending:"در انتظار پرداخت",
-        paid:"پرداخت شده",
-        processing:"در حال پردازش",
-        completed:"تکمیل شده",
-        cancelled:"لغو شده"
-      };
-
-      return labels[status] || status;
-    }
-
-
-    function escapeText(text){
-
-      const div =
-        document.createElement("div");
-
-      div.textContent = text;
-
-      return div.innerHTML;
-    }
-
-
-    loadAccount();
-
-    </script>
-
-    `
-  );
+  </div>
+</section>
+`;
 }
 
 
@@ -2883,279 +2328,170 @@ function accountPage() {
 ========================================================= */
 
 function adminPage() {
-  return basePage(
-    "مدیریت فروشگاه",
-    `
+  return `
+<section class="section">
+  <div class="container">
 
     <div
-      id="admin-area"
+      id="admin-login"
       class="card"
     >
-      در حال بررسی پنل مدیریت...
+
+      <h2>مدیریت فروشگاه</h2>
+
+      <p>
+        ورود مدیر
+      </p>
+
+      <form
+        id="admin-login-form"
+        class="form"
+      >
+
+        <label>
+          نام کاربری
+
+          <input
+            name="username"
+            value="admin"
+            required
+          >
+        </label>
+
+        <label>
+          رمز عبور
+
+          <input
+            type="password"
+            name="password"
+            required
+          >
+        </label>
+
+        <button
+          class="btn btn-primary"
+          type="submit"
+        >
+          ورود مدیریت
+        </button>
+
+      </form>
+
+      <div
+        id="admin-login-message"
+        style="margin-top:12px;"
+      ></div>
+
     </div>
 
 
-    <script>
+    <div
+      id="admin-panel"
+      style="display:none;"
+    >
 
-    async function loadAdmin(){
-
-      const area =
-        document.getElementById(
-          "admin-area"
-        );
-
-      const response =
-        await fetch("/api/admin/me");
-
-      const data =
-        await response.json();
-
-      if(!data.loggedIn){
-
-        showAdminLogin();
-
-        return;
-      }
-
-      showDashboard();
-    }
-
-
-    function showAdminLogin(){
-
-      document.getElementById(
-        "admin-area"
-      ).innerHTML = `
-
-        <div class="form">
-
-          <div
-            style="
-              text-align:center;
-              margin-bottom:25px;
-            "
-          >
-
-            <div
-              class="logo"
-              style="
-                margin:auto;
-              "
-            >
-              D
-            </div>
-
-            <h2>
-              مدیریت ${STORE_NAME}
-            </h2>
-
-          </div>
-
-
-          <div class="form-group">
-
-            <label>
-              نام کاربری
-            </label>
-
-            <input
-              id="adminUsername"
-              value="admin"
-            >
-
-          </div>
-
-
-          <div class="form-group">
-
-            <label>
-              رمز عبور مدیریت
-            </label>
-
-            <input
-              id="adminPassword"
-              type="password"
-            >
-
-          </div>
-
-
-          <button
-            class="btn btn-primary"
-            onclick="adminLogin()"
-          >
-            ورود به مدیریت
-          </button>
-
-
-          <div
-            id="admin-message"
-            style="margin-top:15px"
-          ></div>
-
-        </div>
-
-      `;
-    }
-
-
-    async function adminLogin(){
-
-      const message =
-        document.getElementById(
-          "admin-message"
-        );
-
-      const username =
-        document.getElementById(
-          "adminUsername"
-        ).value.trim();
-
-      const password =
-        document.getElementById(
-          "adminPassword"
-        ).value;
-
-      const response =
-        await fetch(
-          "/api/admin/login",
-          {
-            method:"POST",
-
-            headers:{
-              "Content-Type":
-                "application/json"
-            },
-
-            body:JSON.stringify({
-              username,
-              password
-            })
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if(!data.ok){
-
-        message.innerHTML =
-          '<div class="alert">' +
-          escapeText(
-            data.error || "خطا"
-          ) +
-          '</div>';
-
-        return;
-      }
-
-      location.reload();
-    }
-
-
-    async function showDashboard(){
-
-      const area =
-        document.getElementById(
-          "admin-area"
-        );
-
-      area.innerHTML = `
-
-        <div
-          style="
-            display:flex;
-            justify-content:space-between;
-            align-items:center;
-            gap:15px;
-            flex-wrap:wrap;
-            margin-bottom:25px;
-          "
-        >
-
-          <div>
-
-            <span class="badge">
-              ADMIN
-            </span>
-
-            <h2>
-              مدیریت فروشگاه
-            </h2>
-
-          </div>
-
-
-          <button
-            class="btn btn-danger btn-small"
-            onclick="adminLogout()"
-          >
-            خروج
-          </button>
-
-        </div>
-
+      <div class="admin-grid">
 
         <div class="card">
 
-          <h3>
+          <h2>
             افزودن محصول
-          </h3>
+          </h2>
 
-          <div class="form-group">
+          <form
+            id="product-form"
+            class="form"
+          >
 
             <label>
               نام محصول
+
+              <input
+                name="name"
+                required
+              >
             </label>
 
-            <input
-              id="productName"
-              placeholder="مثلاً بسته ابزارهای دیجیتال"
-            >
+            <label>
+              نامک انگلیسی
 
-          </div>
-
-
-          <div class="form-group">
+              <input
+                name="slug"
+                placeholder="product-name"
+              >
+            </label>
 
             <label>
               توضیحات
+
+              <textarea
+                name="description"
+              ></textarea>
             </label>
-
-            <textarea
-              id="productDescription"
-              placeholder="توضیحات محصول"
-            ></textarea>
-
-          </div>
-
-
-          <div class="form-group">
 
             <label>
               قیمت
+
+              <input
+                type="number"
+                name="price"
+                min="0"
+                value="0"
+                required
+              >
             </label>
 
-            <input
-              id="productPrice"
-              inputmode="numeric"
-              placeholder="99000"
+            <label>
+              تصویر
+
+              <input
+                name="image"
+                placeholder="https://..."
+              >
+            </label>
+
+            <label>
+              دسته‌بندی
+
+              <input
+                name="category"
+              >
+            </label>
+
+            <label>
+              موجودی
+
+              <input
+                type="number"
+                name="stock"
+                min="0"
+                value="0"
+              >
+            </label>
+
+            <label>
+              <span>
+                محصول ویژه
+              </span>
+
+              <input
+                type="checkbox"
+                name="featured"
+              >
+            </label>
+
+            <button
+              class="btn btn-primary"
+              type="submit"
             >
+              افزودن محصول
+            </button>
 
-          </div>
-
-
-          <button
-            class="btn btn-success"
-            onclick="addProduct()"
-          >
-            افزودن محصول
-          </button>
-
+          </form>
 
           <div
             id="product-message"
-            style="margin-top:15px"
+            style="margin-top:12px;"
           ></div>
 
         </div>
@@ -3163,12 +2499,14 @@ function adminPage() {
 
         <div class="card">
 
-          <h3>
+          <h2>
             محصولات
-          </h3>
+          </h2>
 
-          <div id="products-admin">
-            در حال بارگذاری...
+          <div
+            id="admin-products"
+          >
+            در حال دریافت...
           </div>
 
         </div>
@@ -3176,550 +2514,46 @@ function adminPage() {
 
         <div class="card">
 
-          <h3>
+          <h2>
             سفارش‌ها
-          </h3>
+          </h2>
 
-          <div id="orders-admin">
-            در حال بارگذاری...
+          <div
+            id="admin-orders"
+          >
+            در حال دریافت...
           </div>
 
         </div>
 
-      `;
+      </div>
 
-      await loadAdminProducts();
-      await loadAdminOrders();
-    }
+    </div>
 
-
-    async function addProduct(){
-
-      const message =
-        document.getElementById(
-          "product-message"
-        );
-
-      const name =
-        document.getElementById(
-          "productName"
-        ).value.trim();
-
-      const description =
-        document.getElementById(
-          "productDescription"
-        ).value.trim();
-
-      const price =
-        document.getElementById(
-          "productPrice"
-        ).value;
-
-      const response =
-        await fetch(
-          "/api/admin/products",
-          {
-            method:"POST",
-
-            headers:{
-              "Content-Type":
-                "application/json"
-            },
-
-            body:JSON.stringify({
-              name,
-              description,
-              price
-            })
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if(!data.ok){
-
-        message.innerHTML =
-          '<div class="alert">' +
-          escapeText(
-            data.error || "خطا"
-          ) +
-          '</div>';
-
-        return;
-      }
-
-      message.innerHTML =
-        '<div class="alert">' +
-        'محصول با موفقیت اضافه شد.' +
-        '</div>';
-
-      document.getElementById(
-        "productName"
-      ).value = "";
-
-      document.getElementById(
-        "productDescription"
-      ).value = "";
-
-      document.getElementById(
-        "productPrice"
-      ).value = "";
-
-      await loadAdminProducts();
-    }
-
-
-    async function loadAdminProducts(){
-
-      const box =
-        document.getElementById(
-          "products-admin"
-        );
-
-      const response =
-        await fetch(
-          "/api/admin/products"
-        );
-
-      const data =
-        await response.json();
-
-      if(!data.ok){
-
-        box.innerHTML =
-          '<div class="alert">' +
-          escapeText(
-            data.error || "خطا"
-          ) +
-          '</div>';
-
-        return;
-      }
-
-      const products =
-        data.products || [];
-
-      if(!products.length){
-
-        box.innerHTML =
-          '<div class="empty">' +
-          'محصولی وجود ندارد.' +
-          '</div>';
-
-        return;
-      }
-
-      box.innerHTML = `
-
-        <div class="table-wrap">
-
-          <table>
-
-            <thead>
-
-              <tr>
-                <th>شناسه</th>
-                <th>نام</th>
-                <th>قیمت</th>
-                <th>عملیات</th>
-              </tr>
-
-            </thead>
-
-            <tbody>
-
-              ${products.map(product => `
-
-                <tr>
-
-                  <td>
-                    ${product.id}
-                  </td>
-
-                  <td>
-                    ${escapeText(
-                      product.name
-                    )}
-                  </td>
-
-                  <td>
-                    ${Number(
-                      product.price || 0
-                    ).toLocaleString("fa-IR")}
-                    تومان
-                  </td>
-
-                  <td>
-
-                    <button
-                      class="btn btn-danger btn-small"
-                      onclick="deleteProduct(${product.id})"
-                    >
-                      حذف
-                    </button>
-
-                  </td>
-
-                </tr>
-
-              `).join("")}
-
-            </tbody>
-
-          </table>
-
-        </div>
-
-      `;
-    }
-
-
-    async function deleteProduct(id){
-
-      if(!confirm(
-        "آیا از حذف این محصول مطمئن هستید؟"
-      )){
-        return;
-      }
-
-      const response =
-        await fetch(
-          "/api/admin/products/" + id,
-          {
-            method:"DELETE"
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if(!data.ok){
-
-        alert(
-          data.error || "خطا"
-        );
-
-        return;
-      }
-
-      await loadAdminProducts();
-    }
-
-
-    async function loadAdminOrders(){
-
-      const box =
-        document.getElementById(
-          "orders-admin"
-        );
-
-      const response =
-        await fetch(
-          "/api/admin/orders"
-        );
-
-      const data =
-        await response.json();
-
-      if(!data.ok){
-
-        box.innerHTML =
-          '<div class="alert">' +
-          escapeText(
-            data.error || "خطا"
-          ) +
-          '</div>';
-
-        return;
-      }
-
-      const orders =
-        data.orders || [];
-
-      if(!orders.length){
-
-        box.innerHTML =
-          '<div class="empty">' +
-          'هنوز سفارشی ثبت نشده است.' +
-          '</div>';
-
-        return;
-      }
-
-      box.innerHTML = `
-
-        <div class="table-wrap">
-
-          <table>
-
-            <thead>
-
-              <tr>
-
-                <th>
-                  سفارش
-                </th>
-
-                <th>
-                  کاربر
-                </th>
-
-                <th>
-                  ایمیل
-                </th>
-
-                <th>
-                  مبلغ
-                </th>
-
-                <th>
-                  وضعیت
-                </th>
-
-                <th>
-                  عملیات
-                </th>
-
-              </tr>
-
-            </thead>
-
-            <tbody>
-
-              ${orders.map(order => `
-
-                <tr>
-
-                  <td>
-                    #${order.id}
-                  </td>
-
-                  <td>
-                    ${escapeText(
-                      order.username || "-"
-                    )}
-                  </td>
-
-                  <td>
-                    ${escapeText(
-                      order.email || "-"
-                    )}
-                  </td>
-
-                  <td>
-                    ${Number(
-                      order.total_price || 0
-                    ).toLocaleString("fa-IR")}
-                    تومان
-                  </td>
-
-                  <td>
-                    <span class="badge">
-                      ${statusText(
-                        order.status
-                      )}
-                    </span>
-                  </td>
-
-                  <td>
-
-                    <select
-                      onchange="
-                        changeOrderStatus(
-                          ${order.id},
-                          this.value
-                        )
-                      "
-                    >
-
-                      <option
-                        value="pending"
-                        ${order.status === "pending"
-                          ? "selected"
-                          : ""}
-                      >
-                        در انتظار پرداخت
-                      </option>
-
-                      <option
-                        value="paid"
-                        ${order.status === "paid"
-                          ? "selected"
-                          : ""}
-                      >
-                        پرداخت شده
-                      </option>
-
-                      <option
-                        value="processing"
-                        ${order.status === "processing"
-                          ? "selected"
-                          : ""}
-                      >
-                        در حال پردازش
-                      </option>
-
-                      <option
-                        value="completed"
-                        ${order.status === "completed"
-                          ? "selected"
-                          : ""}
-                      >
-                        تکمیل شده
-                      </option>
-
-                      <option
-                        value="cancelled"
-                        ${order.status === "cancelled"
-                          ? "selected"
-                          : ""}
-                      >
-                        لغو شده
-                      </option>
-
-                    </select>
-
-                  </td>
-
-                </tr>
-
-              `).join("")}
-
-            </tbody>
-
-          </table>
-
-        </div>
-
-      `;
-    }
-
-
-    async function changeOrderStatus(
-      orderId,
-      status
-    ){
-
-      const response =
-        await fetch(
-          "/api/admin/orders/status",
-          {
-            method:"POST",
-
-            headers:{
-              "Content-Type":
-                "application/json"
-            },
-
-            body:JSON.stringify({
-              orderId,
-              status
-            })
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if(!data.ok){
-
-        alert(
-          data.error || "خطا"
-        );
-
-        return;
-      }
-
-      await loadAdminOrders();
-    }
-
-
-    async function adminLogout(){
-
-      await fetch(
-        "/api/admin/logout",
-        {
-          method:"POST"
-        }
-      );
-
-      location.reload();
-    }
-
-
-    function statusText(status){
-
-      const labels = {
-        pending:"در انتظار پرداخت",
-        paid:"پرداخت شده",
-        processing:"در حال پردازش",
-        completed:"تکمیل شده",
-        cancelled:"لغو شده"
-      };
-
-      return labels[status] || status;
-    }
-
-
-    function escapeText(text){
-
-      const div =
-        document.createElement("div");
-
-      div.textContent = text;
-
-      return div.innerHTML;
-    }
-
-
-    loadAdmin();
-
-    </script>
-
-    `
-  );
+  </div>
+</section>
+`;
 }
 
 
 /* =========================================================
-   404
+   NOT FOUND
 ========================================================= */
 
-function notFoundPage() {
-  return basePage(
-    "صفحه پیدا نشد",
-    `
+function notFoundPage(message) {
+  return `
+<section class="section">
+  <div class="container">
 
-    <div
-      class="card"
-      style="
-        text-align:center;
-        padding:60px 20px;
-      "
-    >
+    <div class="card"
+         style="text-align:center;">
 
-      <div
-        style="
-          font-size:70px;
-          margin-bottom:15px;
-        "
-      >
-        404
-      </div>
-
-      <h2>
+      <h1>
         صفحه پیدا نشد
-      </h2>
+      </h1>
 
-      <p
-        style="
-          color:#64748b;
-          line-height:2;
-        "
-      >
-        صفحه‌ای که به دنبال آن هستید
-        وجود ندارد.
+      <p>
+        ${escapeHtml(message)}
       </p>
 
       <a
@@ -3731,6 +2565,1130 @@ function notFoundPage() {
 
     </div>
 
-    `
+  </div>
+</section>
+`;
+}
+
+
+/* =========================================================
+   CLIENT JAVASCRIPT
+========================================================= */
+
+function clientJS() {
+  return `
+
+async function api(
+  url,
+  options = {}
+) {
+  const response =
+    await fetch(
+      url,
+      {
+        credentials: "same-origin",
+        ...options
+      }
+    );
+
+  let data = null;
+
+  try {
+    data = await response.json();
+  } catch (e) {
+    data = {
+      ok: false,
+      error: "پاسخ نامعتبر از سرور."
+    };
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data.error ||
+      "خطایی رخ داد."
+    );
+  }
+
+  return data;
+}
+
+
+function escapeText(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+
+function price(value) {
+  return Number(value || 0)
+    .toLocaleString("fa-IR") +
+    " تومان";
+}
+
+
+/* =========================
+   HOME PRODUCTS
+========================= */
+
+async function loadProducts() {
+  const box =
+    document.getElementById(
+      "products-list"
+    );
+
+  if (!box) {
+    return;
+  }
+
+  try {
+    const data =
+      await api(
+        "/api/products"
+      );
+
+    const products =
+      data.products || [];
+
+    if (!products.length) {
+      box.innerHTML =
+        '<div class="empty" style="grid-column:1/-1;">' +
+        "هنوز محصولی ثبت نشده است." +
+        "</div>";
+
+      return;
+    }
+
+    box.innerHTML =
+      products.map(
+        product => {
+
+          const cover =
+            product.image
+              ? '<img src="' +
+                escapeText(
+                  product.image
+                ) +
+                '" alt="' +
+                escapeText(
+                  product.name
+                ) +
+                '" style="width:100%;height:100%;object-fit:cover;">'
+              : "D";
+
+          return \`
+            <article class="product-card">
+
+              <a
+                href="/product/\${encodeURIComponent(
+                  product.slug || product.id
+                )}"
+              >
+                <div class="product-cover">
+                  \${cover}
+                </div>
+              </a>
+
+              <div class="product-body">
+
+                <h3>
+                  \${escapeText(
+                    product.name
+                  )}
+                </h3>
+
+                <p>
+                  \${escapeText(
+                    product.description ||
+                    "محصول فروشگاه"
+                  )}
+                </p>
+
+                <div class="product-bottom">
+
+                  <strong class="price">
+                    \${price(
+                      product.price
+                    )}
+                  </strong>
+
+                  <a
+                    href="/product/\${encodeURIComponent(
+                      product.slug || product.id
+                    )}"
+                    class="btn btn-primary"
+                  >
+                    مشاهده
+                  </a>
+
+                </div>
+
+              </div>
+
+            </article>
+          \`;
+        }
+      ).join("");
+
+  } catch (error) {
+    box.innerHTML =
+      '<div class="error" style="grid-column:1/-1;">' +
+      escapeText(error.message) +
+      "</div>";
+  }
+}
+
+
+/* =========================
+   CART
+========================= */
+
+function getCart() {
+  try {
+    return JSON.parse(
+      localStorage.getItem(
+        "digimarixo_cart"
+      ) || "[]"
+    );
+  } catch (e) {
+    return [];
+  }
+}
+
+
+function saveCart(cart) {
+  localStorage.setItem(
+    "digimarixo_cart",
+    JSON.stringify(cart)
   );
-             }
+}
+
+
+function addToCart(productId) {
+  const cart = getCart();
+
+  const existing =
+    cart.find(
+      item =>
+        Number(item.product_id) ===
+        Number(productId)
+    );
+
+  if (existing) {
+    existing.quantity += 1;
+  } else {
+    cart.push({
+      product_id:
+        Number(productId),
+      quantity: 1
+    });
+  }
+
+  saveCart(cart);
+
+  alert(
+    "محصول به سبد خرید اضافه شد."
+  );
+}
+
+
+/* =========================
+   ACCOUNT
+========================= */
+
+async function loadAccount() {
+  const area =
+    document.getElementById(
+      "account-area"
+    );
+
+  if (!area) {
+    return;
+  }
+
+  try {
+    const data =
+      await api("/api/me");
+
+    if (
+      !data.loggedIn
+    ) {
+      setupAccountForms();
+      return;
+    }
+
+    area.innerHTML =
+      \`
+      <div class="card">
+
+        <h2>
+          حساب کاربری
+        </h2>
+
+        <p>
+          سلام
+          <strong>
+            \${escapeText(
+              data.user.username
+            )}
+          </strong>
+        </p>
+
+        <p>
+          ایمیل:
+          \${escapeText(
+            data.user.email
+          )}
+        </p>
+
+        <button
+          class="btn btn-primary"
+          onclick="logoutUser()"
+        >
+          خروج از حساب
+        </button>
+
+      </div>
+      \`;
+
+    await loadOrders();
+
+  } catch (error) {
+    setupAccountForms();
+  }
+}
+
+
+function setupAccountForms() {
+  const loginForm =
+    document.getElementById(
+      "login-form"
+    );
+
+  const registerForm =
+    document.getElementById(
+      "register-form"
+    );
+
+  if (loginForm) {
+    loginForm.addEventListener(
+      "submit",
+      async event => {
+
+        event.preventDefault();
+
+        const form =
+          new FormData(
+            loginForm
+          );
+
+        const message =
+          document.getElementById(
+            "login-message"
+          );
+
+        try {
+
+          const data =
+            await api(
+              "/api/login",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type":
+                    "application/json"
+                },
+                body:
+                  JSON.stringify({
+                    username:
+                      form.get(
+                        "username"
+                      ),
+                    password:
+                      form.get(
+                        "password"
+                      )
+                  })
+              }
+            );
+
+          message.innerHTML =
+            '<div class="notice">' +
+            escapeText(
+              data.message ||
+              "ورود موفق بود."
+            ) +
+            "</div>";
+
+          setTimeout(
+            () =>
+              location.reload(),
+            500
+          );
+
+        } catch (error) {
+
+          message.innerHTML =
+            '<div class="error">' +
+            escapeText(
+              error.message
+            ) +
+            "</div>";
+        }
+      }
+    );
+  }
+
+
+  if (registerForm) {
+    registerForm.addEventListener(
+      "submit",
+      async event => {
+
+        event.preventDefault();
+
+        const form =
+          new FormData(
+            registerForm
+          );
+
+        const message =
+          document.getElementById(
+            "register-message"
+          );
+
+        try {
+
+          const data =
+            await api(
+              "/api/register",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type":
+                    "application/json"
+                },
+                body:
+                  JSON.stringify({
+                    username:
+                      form.get(
+                        "username"
+                      ),
+                    email:
+                      form.get(
+                        "email"
+                      ),
+                    password:
+                      form.get(
+                        "password"
+                      )
+                  })
+              }
+            );
+
+          message.innerHTML =
+            '<div class="notice">' +
+            escapeText(
+              data.message ||
+              "ثبت‌نام موفق بود."
+            ) +
+            "</div>";
+
+          setTimeout(
+            () =>
+              location.reload(),
+            500
+          );
+
+        } catch (error) {
+
+          message.innerHTML =
+            '<div class="error">' +
+            escapeText(
+              error.message
+            ) +
+            "</div>";
+        }
+      }
+    );
+  }
+}
+
+
+async function logoutUser() {
+  try {
+    await api(
+      "/api/logout",
+      {
+        method: "POST"
+      }
+    );
+
+    location.reload();
+
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+
+async function loadOrders() {
+  const area =
+    document.getElementById(
+      "orders-area"
+    );
+
+  if (!area) {
+    return;
+  }
+
+  try {
+
+    const data =
+      await api(
+        "/api/orders"
+      );
+
+    const orders =
+      data.orders || [];
+
+    if (!orders.length) {
+
+      area.innerHTML =
+        \`
+        <div class="card">
+          <h2>سفارش‌های من</h2>
+          <div class="empty">
+            هنوز سفارشی ثبت نشده است.
+          </div>
+        </div>
+        \`;
+
+      return;
+    }
+
+    area.innerHTML =
+      \`
+      <div class="card">
+
+        <h2>
+          سفارش‌های من
+        </h2>
+
+        <div class="table-wrap">
+
+          <table>
+
+            <thead>
+              <tr>
+                <th>شماره</th>
+                <th>مبلغ</th>
+                <th>وضعیت</th>
+                <th>تاریخ</th>
+              </tr>
+            </thead>
+
+            <tbody>
+
+              \${orders.map(
+                order =>
+                  \`
+                  <tr>
+                    <td>
+                      #\${order.id}
+                    </td>
+
+                    <td>
+                      \${price(
+                        order.total
+                      )}
+                    </td>
+
+                    <td>
+                      <span class="badge">
+                        \${escapeText(
+                          order.status
+                        )}
+                      </span>
+                    </td>
+
+                    <td>
+                      \${escapeText(
+                        order.created_at
+                      )}
+                    </td>
+                  </tr>
+                  \`
+              ).join("")}
+
+            </tbody>
+
+          </table>
+
+        </div>
+
+      </div>
+      \`;
+
+  } catch (error) {
+    area.innerHTML =
+      '<div class="error">' +
+      escapeText(
+        error.message
+      ) +
+      "</div>";
+  }
+}
+
+
+/* =========================
+   ADMIN
+========================= */
+
+async function loadAdmin() {
+  const loginBox =
+    document.getElementById(
+      "admin-login"
+    );
+
+  const panel =
+    document.getElementById(
+      "admin-panel"
+    );
+
+  if (!loginBox || !panel) {
+    return;
+  }
+
+  try {
+
+    const data =
+      await api(
+        "/api/admin/me"
+      );
+
+    if (data.loggedIn) {
+
+      loginBox.style.display =
+        "none";
+
+      panel.style.display =
+        "block";
+
+      await loadAdminProducts();
+      await loadAdminOrders();
+
+    } else {
+      setupAdminLogin();
+    }
+
+  } catch (error) {
+    setupAdminLogin();
+  }
+}
+
+
+function setupAdminLogin() {
+  const form =
+    document.getElementById(
+      "admin-login-form"
+    );
+
+  if (!form) {
+    return;
+  }
+
+  form.addEventListener(
+    "submit",
+    async event => {
+
+      event.preventDefault();
+
+      const data =
+        new FormData(form);
+
+      const message =
+        document.getElementById(
+          "admin-login-message"
+        );
+
+      try {
+
+        await api(
+          "/api/admin/login",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json"
+            },
+            body:
+              JSON.stringify({
+                username:
+                  data.get(
+                    "username"
+                  ),
+                password:
+                  data.get(
+                    "password"
+                  )
+              })
+          }
+        );
+
+        location.reload();
+
+      } catch (error) {
+
+        message.innerHTML =
+          '<div class="error">' +
+          escapeText(
+            error.message
+          ) +
+          "</div>";
+      }
+    }
+  );
+
+
+  const productForm =
+    document.getElementById(
+      "product-form"
+    );
+
+  if (productForm) {
+
+    productForm.addEventListener(
+      "submit",
+      async event => {
+
+        event.preventDefault();
+
+        const data =
+          new FormData(
+            productForm
+          );
+
+        const message =
+          document.getElementById(
+            "product-message"
+          );
+
+        try {
+
+          await api(
+            "/api/admin/products",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type":
+                  "application/json"
+              },
+              body:
+                JSON.stringify({
+                  name:
+                    data.get("name"),
+                  slug:
+                    data.get("slug"),
+                  description:
+                    data.get(
+                      "description"
+                    ),
+                  price:
+                    Number(
+                      data.get(
+                        "price"
+                      ) || 0
+                    ),
+                  image:
+                    data.get(
+                      "image"
+                    ),
+                  category:
+                    data.get(
+                      "category"
+                    ),
+                  stock:
+                    Number(
+                      data.get(
+                        "stock"
+                      ) || 0
+                    ),
+                  featured:
+                    data.get(
+                      "featured"
+                    ) === "on"
+                })
+            }
+          );
+
+          productForm.reset();
+
+          message.innerHTML =
+            '<div class="notice">' +
+            "محصول با موفقیت اضافه شد." +
+            "</div>";
+
+          await loadAdminProducts();
+
+        } catch (error) {
+
+          message.innerHTML =
+            '<div class="error">' +
+            escapeText(
+              error.message
+            ) +
+            "</div>";
+        }
+      }
+    );
+  }
+}
+
+
+async function loadAdminProducts() {
+  const box =
+    document.getElementById(
+      "admin-products"
+    );
+
+  if (!box) {
+    return;
+  }
+
+  try {
+
+    const data =
+      await api(
+        "/api/admin/products"
+      );
+
+    const products =
+      data.products || [];
+
+    if (!products.length) {
+
+      box.innerHTML =
+        '<div class="empty">' +
+        "محصولی وجود ندارد." +
+        "</div>";
+
+      return;
+    }
+
+    box.innerHTML =
+      \`
+      <div class="table-wrap">
+
+        <table>
+
+          <thead>
+            <tr>
+              <th>محصول</th>
+              <th>قیمت</th>
+              <th>موجودی</th>
+              <th>عملیات</th>
+            </tr>
+          </thead>
+
+          <tbody>
+
+            \${products.map(
+              product =>
+                \`
+                <tr>
+
+                  <td>
+                    \${escapeText(
+                      product.name
+                    )}
+                  </td>
+
+                  <td>
+                    \${price(
+                      product.price
+                    )}
+                  </td>
+
+                  <td>
+                    \${product.stock}
+                  </td>
+
+                  <td>
+
+                    <button
+                      class="btn btn-orange"
+                      onclick="deleteProduct(\${product.id})"
+                    >
+                      حذف
+                    </button>
+
+                  </td>
+
+                </tr>
+                \`
+            ).join("")}
+
+          </tbody>
+
+        </table>
+
+      </div>
+      \`;
+
+  } catch (error) {
+
+    box.innerHTML =
+      '<div class="error">' +
+      escapeText(
+        error.message
+      ) +
+      "</div>";
+  }
+}
+
+
+async function deleteProduct(id) {
+  if (
+    !confirm(
+      "آیا از حذف این محصول مطمئن هستید؟"
+    )
+  ) {
+    return;
+  }
+
+  try {
+
+    await api(
+      "/api/admin/products",
+      {
+        method: "DELETE",
+        headers: {
+          "Content-Type":
+            "application/json"
+        },
+        body:
+          JSON.stringify({
+            id
+          })
+      }
+    );
+
+    await loadAdminProducts();
+
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+
+async function loadAdminOrders() {
+  const box =
+    document.getElementById(
+      "admin-orders"
+    );
+
+  if (!box) {
+    return;
+  }
+
+  try {
+
+    const data =
+      await api(
+        "/api/admin/orders"
+      );
+
+    const orders =
+      data.orders || [];
+
+    if (!orders.length) {
+
+      box.innerHTML =
+        '<div class="empty">' +
+        "هنوز سفارشی ثبت نشده است." +
+        "</div>";
+
+      return;
+    }
+
+    box.innerHTML =
+      \`
+      <div class="table-wrap">
+
+        <table>
+
+          <thead>
+            <tr>
+              <th>شماره</th>
+              <th>کاربر</th>
+              <th>مبلغ</th>
+              <th>وضعیت</th>
+              <th>تغییر</th>
+            </tr>
+          </thead>
+
+          <tbody>
+
+            \${orders.map(
+              order =>
+                \`
+                <tr>
+
+                  <td>
+                    #\${order.id}
+                  </td>
+
+                  <td>
+                    \${escapeText(
+                      order.username ||
+                      "-"
+                    )}
+                  </td>
+
+                  <td>
+                    \${price(
+                      order.total
+                    )}
+                  </td>
+
+                  <td>
+                    \${escapeText(
+                      order.status
+                    )}
+                  </td>
+
+                  <td>
+
+                    <select
+                      onchange="changeOrderStatus(
+                        \${order.id},
+                        this.value
+                      )"
+                    >
+
+                      <option value="pending">
+                        pending
+                      </option>
+
+                      <option value="paid">
+                        paid
+                      </option>
+
+                      <option value="processing">
+                        processing
+                      </option>
+
+                      <option value="completed">
+                        completed
+                      </option>
+
+                      <option value="cancelled">
+                        cancelled
+                      </option>
+
+                    </select>
+
+                  </td>
+
+                </tr>
+                \`
+            ).join("")}
+
+          </tbody>
+
+        </table>
+
+      </div>
+      \`;
+
+  } catch (error) {
+
+    box.innerHTML =
+      '<div class="error">' +
+      escapeText(
+        error.message
+      ) +
+      "</div>";
+  }
+}
+
+
+async function changeOrderStatus(
+  id,
+  status
+) {
+  try {
+
+    await api(
+      "/api/admin/orders/status",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json"
+        },
+        body:
+          JSON.stringify({
+            id,
+            status
+          })
+      }
+    );
+
+    await loadAdminOrders();
+
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+
+/* =========================
+   START
+========================= */
+
+document.addEventListener(
+  "DOMContentLoaded",
+  () => {
+
+    loadProducts();
+    loadAccount();
+    loadAdmin();
+
+  }
+);
+
+`;
+}
+
+
+/* =========================================================
+   SERVER-SIDE HELPERS
+========================================================= */
+
+function formatPrice(value) {
+  return (
+    Number(value || 0)
+      .toLocaleString("fa-IR") +
+    " تومان"
+  );
+}
+
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+
+function escapeAttr(value) {
+  return escapeHtml(value);
+    }
