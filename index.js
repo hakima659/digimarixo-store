@@ -10,7 +10,6 @@ export default {
     const method = request.method;
 
     try {
-      // ساخت جدول‌های موردنیاز در اولین درخواست
       await initDB(env);
 
       // =========================
@@ -40,6 +39,39 @@ export default {
           ok: true,
           products: await getProducts(env)
         });
+      }
+
+      // =========================
+      // PRODUCT DETAILS
+      // =========================
+      if (path.startsWith("/product/") && method === "GET") {
+        const id = Number(path.split("/")[2]);
+
+        if (!id) {
+          return html(notFoundPage(), 404);
+        }
+
+        const product = await env.DB
+          .prepare(`
+            SELECT
+              id,
+              name,
+              description,
+              price,
+              image,
+              created_at
+            FROM products
+            WHERE id = ?
+            LIMIT 1
+          `)
+          .bind(id)
+          .first();
+
+        if (!product) {
+          return html(notFoundPage(), 404);
+        }
+
+        return html(productPage(product));
       }
 
       // =========================
@@ -1680,9 +1712,8 @@ return value
 
 function selectProduct(id){
 
-alert(
-"شناسه محصول: " + id
-);
+  window.location.href =
+    "/product/" + Number(id);
 
 }
 
@@ -1695,6 +1726,377 @@ loadProducts();
 
 </html>
 `;
+}
+
+
+// =====================================================
+// PRODUCT DETAILS PAGE
+// =====================================================
+
+function productPage(product){
+
+  const safeName =
+    escapeHtmlServer(
+      String(product.name || "محصول دیجیتال")
+    );
+
+  const safeDescription =
+    escapeHtmlServer(
+      String(product.description || "")
+    );
+
+  const safePrice =
+    escapeHtmlServer(
+      String(product.price || "")
+    );
+
+  const safeImage =
+    escapeHtmlServer(
+      String(product.image || "🛍️")
+    );
+
+  return `
+<!DOCTYPE html>
+
+<html lang="fa" dir="rtl">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1.0"
+>
+
+<meta
+  name="description"
+  content="${safeDescription}"
+>
+
+<title>${safeName} | دیجی‌ماریکسو</title>
+
+<style>
+
+*{
+  box-sizing:border-box;
+}
+
+body{
+  margin:0;
+
+  font-family:
+    Tahoma,
+    Arial,
+    sans-serif;
+
+  background:
+    linear-gradient(
+      180deg,
+      #f8fafc 0%,
+      #eef2ff 100%
+    );
+
+  color:#111827;
+  line-height:1.8;
+}
+
+a{
+  color:inherit;
+  text-decoration:none;
+}
+
+.container{
+  width:min(1000px,92%);
+  margin:0 auto;
+}
+
+header{
+  background:
+    rgba(255,255,255,.94);
+
+  border-bottom:
+    1px solid #e5e7eb;
+
+  padding:16px 0;
+}
+
+.nav{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:15px;
+}
+
+.brand{
+  font-weight:900;
+  font-size:19px;
+}
+
+.brand small{
+  display:block;
+  font-size:10px;
+  color:#6b7280;
+  direction:ltr;
+  text-align:right;
+}
+
+.back{
+  background:#111827;
+  color:white;
+
+  padding:9px 15px;
+
+  border-radius:11px;
+
+  font-size:13px;
+  font-weight:800;
+}
+
+main{
+  padding:55px 0;
+}
+
+.product-card{
+  background:white;
+
+  border:
+    1px solid #e5e7eb;
+
+  border-radius:26px;
+
+  overflow:hidden;
+
+  box-shadow:
+    0 20px 50px
+    rgba(15,23,42,.08);
+}
+
+.product-image{
+  min-height:300px;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  background:
+    linear-gradient(
+      135deg,
+      #eef2ff,
+      #e0e7ff
+    );
+
+  font-size:90px;
+}
+
+.product-content{
+  padding:35px;
+}
+
+.product-id{
+  display:inline-block;
+
+  padding:5px 10px;
+
+  border-radius:999px;
+
+  background:#eef2ff;
+  color:#4338ca;
+
+  font-size:12px;
+  font-weight:800;
+
+  margin-bottom:12px;
+}
+
+h1{
+  font-size:
+    clamp(28px,5vw,45px);
+
+  margin:
+    0 0 15px;
+
+  line-height:1.3;
+}
+
+.description{
+  color:#6b7280;
+  font-size:16px;
+
+  margin-bottom:28px;
+}
+
+.bottom{
+  display:flex;
+
+  align-items:center;
+  justify-content:space-between;
+
+  gap:15px;
+
+  padding-top:22px;
+
+  border-top:
+    1px solid #e5e7eb;
+}
+
+.price{
+  font-size:24px;
+  font-weight:900;
+}
+
+.buy{
+  border:0;
+
+  background:#111827;
+  color:white;
+
+  padding:13px 22px;
+
+  border-radius:13px;
+
+  font-family:inherit;
+  font-weight:800;
+
+  cursor:pointer;
+}
+
+.buy:hover{
+  background:#4f46e5;
+}
+
+@media(max-width:600px){
+
+  .product-content{
+    padding:25px;
+  }
+
+  .product-image{
+    min-height:230px;
+    font-size:70px;
+  }
+
+  .bottom{
+    flex-direction:column;
+    align-items:stretch;
+  }
+
+  .price{
+    text-align:center;
+  }
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<header>
+
+<div class="container nav">
+
+<a href="/" class="brand">
+
+${STORE_NAME}
+
+<small>
+${STORE_EN}
+</small>
+
+</a>
+
+<a
+  href="/"
+  class="back"
+>
+بازگشت به فروشگاه
+</a>
+
+</div>
+
+</header>
+
+<main>
+
+<div class="container">
+
+<div class="product-card">
+
+<div class="product-image">
+${safeImage}
+</div>
+
+<div class="product-content">
+
+<div class="product-id">
+شناسه محصول: ${Number(product.id)}
+</div>
+
+<h1>
+${safeName}
+</h1>
+
+<div class="description">
+${safeDescription}
+</div>
+
+<div class="bottom">
+
+<div class="price">
+${safePrice}
+</div>
+
+<button
+  class="buy"
+  onclick="startPurchase()"
+>
+خرید محصول
+</button>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</main>
+
+<script>
+
+function startPurchase(){
+
+  alert(
+    "خرید آنلاین این محصول هنوز به درگاه پرداخت متصل نشده است."
+  );
+
+}
+
+</script>
+
+</body>
+
+</html>
+`;
+}
+
+
+// =====================================================
+// SERVER HTML ESCAPE
+// =====================================================
+
+function escapeHtmlServer(value){
+
+  return String(value)
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
+
 }
 
 
@@ -2550,7 +2952,7 @@ await loadProducts();
 
 async function deleteProduct(id){
 
-if(!confirm("این محصول حذف شود؟")){
+if(!confirm("این محصول حذف شود?")){
 return;
 }
 
@@ -2708,6 +3110,7 @@ headers:{
 }
 );
 
+
 }
 
 
@@ -2728,4 +3131,4 @@ headers:{
 }
 );
 
-           }
+}
