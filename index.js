@@ -592,14 +592,19 @@ async function userOrders(env, userId) {
         orders.id,
         orders.status,
         orders.created_at,
+
         products.id AS product_id,
         products.name AS product_name,
         products.price AS product_price,
         products.image AS product_image
+
       FROM orders
+
       JOIN products
         ON products.id = orders.product_id
+
       WHERE orders.user_id = ?
+
       ORDER BY orders.id DESC
     `).bind(userId).all();
 
@@ -949,18 +954,24 @@ async function adminOrders(request, env) {
         orders.id,
         orders.status,
         orders.created_at,
+
         users.id AS user_id,
         users.username,
         users.email,
+
         products.id AS product_id,
         products.name AS product_name,
         products.price AS product_price,
         products.image AS product_image
+
       FROM orders
+
       JOIN users
         ON users.id = orders.user_id
+
       JOIN products
         ON products.id = orders.product_id
+
       ORDER BY orders.id DESC
     `).all();
 
@@ -1046,7 +1057,7 @@ async function adminUpdateOrderStatus(request, env) {
 
 
 // ============================================================
-// HOME PAGE
+// HOME PAGE - PREMIUM DESIGN
 // ============================================================
 
 function homePage() {
@@ -1057,7 +1068,9 @@ function homePage() {
 <head>
 
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<meta name="viewport"
+content="width=device-width, initial-scale=1.0">
 
 <title>${STORE_NAME} | ${STORE_EN}</title>
 
@@ -1070,105 +1083,167 @@ content="فروشگاه دیجیتال ${STORE_NAME} برای خرید محصو�
   box-sizing:border-box;
 }
 
-:root {
-  --primary:#5b5cf0;
-  --primary-dark:#4647d8;
-  --text:#172033;
-  --muted:#6b7280;
-  --bg:#f5f7ff;
-  --card:#ffffff;
-  --border:#e7e9f2;
+html {
+  scroll-behavior:smooth;
 }
 
 body {
   margin:0;
-  font-family:Tahoma,Arial,sans-serif;
+  font-family:
+    Tahoma,
+    Arial,
+    sans-serif;
+  color:#172033;
   background:
-    radial-gradient(circle at top right,#eef0ff 0,#f5f7ff 35%,#f8fafc 100%);
-  color:var(--text);
+    radial-gradient(
+      circle at top right,
+      rgba(99,102,241,.10),
+      transparent 32%
+    ),
+    radial-gradient(
+      circle at 10% 35%,
+      rgba(14,165,233,.08),
+      transparent 30%
+    ),
+    #f7f8fc;
 }
 
-header {
-  background:rgba(255,255,255,.9);
-  backdrop-filter:blur(14px);
-  border-bottom:1px solid rgba(231,233,242,.9);
-  padding:14px 18px;
+a {
+  text-decoration:none;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color:transparent;
+}
+
+.header {
   position:sticky;
   top:0;
-  z-index:20;
+  z-index:50;
+  padding:14px 16px;
+  background:rgba(255,255,255,.82);
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+  border-bottom:1px solid rgba(226,232,240,.8);
 }
 
 .nav {
-  max-width:1120px;
+  max-width:1150px;
   margin:auto;
   display:flex;
   align-items:center;
   justify-content:space-between;
-  gap:15px;
+  gap:20px;
 }
 
 .logo {
-  text-decoration:none;
-  color:var(--text);
-  font-size:20px;
+  display:flex;
+  align-items:center;
+  gap:11px;
+  color:#111827;
+}
+
+.logo-mark {
+  width:45px;
+  height:45px;
+  border-radius:14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:white;
+  font-size:22px;
+  font-weight:bold;
+  background:
+    linear-gradient(
+      135deg,
+      #4f46e5,
+      #7c3aed
+    );
+  box-shadow:
+    0 10px 25px rgba(79,70,229,.25);
+}
+
+.logo-text {
+  font-size:18px;
   font-weight:900;
 }
 
-.logo small {
+.logo-text small {
   display:block;
-  color:var(--muted);
+  margin-top:2px;
+  color:#64748b;
   font-size:10px;
-  margin-top:4px;
-  letter-spacing:.5px;
+  letter-spacing:.7px;
+  direction:ltr;
+  text-align:right;
 }
 
 .nav-links {
   display:flex;
-  gap:6px;
-  flex-wrap:wrap;
+  align-items:center;
+  gap:5px;
 }
 
 .nav-links a {
-  color:#374151;
-  text-decoration:none;
-  padding:9px 12px;
-  border-radius:11px;
-  font-size:14px;
+  color:#475569;
+  padding:10px 13px;
+  border-radius:12px;
+  font-size:13px;
+  font-weight:700;
   transition:.2s;
 }
 
 .nav-links a:hover {
-  background:#eef0ff;
-  color:var(--primary);
+  background:#eef2ff;
+  color:#4f46e5;
 }
 
 .container {
-  max-width:1120px;
+  max-width:1150px;
   margin:auto;
-  padding:28px 18px 45px;
+  padding:28px 16px 50px;
 }
 
 .hero {
   position:relative;
   overflow:hidden;
-  background:
-    linear-gradient(135deg,#171a3b 0%,#3639a6 55%,#6466ff 100%);
+  min-height:430px;
+  display:flex;
+  align-items:center;
+  border-radius:30px;
+  padding:48px;
   color:white;
-  padding:48px 30px;
-  border-radius:28px;
-  margin-bottom:34px;
-  box-shadow:0 18px 45px rgba(70,72,216,.22);
+  background:
+    radial-gradient(
+      circle at 85% 20%,
+      rgba(129,140,248,.55),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at 10% 90%,
+      rgba(56,189,248,.28),
+      transparent 32%
+    ),
+    linear-gradient(
+      135deg,
+      #111827 0%,
+      #312e81 52%,
+      #4f46e5 100%
+    );
+  box-shadow:
+    0 25px 70px rgba(30,41,59,.22);
 }
 
 .hero:before {
   content:"";
   position:absolute;
-  width:240px;
-  height:240px;
+  width:250px;
+  height:250px;
   border-radius:50%;
-  background:rgba(255,255,255,.08);
-  left:-70px;
-  top:-90px;
+  border:1px solid rgba(255,255,255,.15);
+  left:-90px;
+  bottom:-100px;
 }
 
 .hero:after {
@@ -1177,215 +1252,512 @@ header {
   width:180px;
   height:180px;
   border-radius:50%;
-  background:rgba(255,255,255,.06);
-  right:8%;
-  bottom:-100px;
+  border:1px solid rgba(255,255,255,.13);
+  right:-55px;
+  top:-60px;
 }
 
 .hero-content {
   position:relative;
   z-index:2;
-  max-width:700px;
+  max-width:680px;
 }
 
-.hero-badge {
-  display:inline-block;
-  background:rgba(255,255,255,.12);
-  border:1px solid rgba(255,255,255,.2);
-  padding:7px 12px;
+.eyebrow {
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 13px;
   border-radius:999px;
+  background:rgba(255,255,255,.12);
+  border:1px solid rgba(255,255,255,.16);
   font-size:12px;
-  margin-bottom:15px;
+  font-weight:bold;
+  margin-bottom:18px;
+}
+
+.eyebrow span {
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:#a5f3fc;
+  box-shadow:0 0 12px #a5f3fc;
 }
 
 .hero h1 {
-  margin:0 0 12px;
-  font-size:34px;
-  line-height:1.4;
+  margin:0;
+  font-size:clamp(34px,6vw,58px);
+  line-height:1.15;
+  letter-spacing:-1px;
+}
+
+.hero-title-en {
+  margin-top:8px;
+  font-size:14px;
+  opacity:.65;
+  direction:ltr;
+  text-align:right;
+  letter-spacing:2px;
 }
 
 .hero p {
-  margin:0 0 24px;
-  line-height:2;
-  color:#eef0ff;
+  max-width:620px;
+  margin:22px 0;
+  line-height:2.1;
+  color:#e0e7ff;
+  font-size:15px;
 }
 
 .hero-buttons {
   display:flex;
-  gap:10px;
   flex-wrap:wrap;
+  gap:10px;
 }
 
 .btn {
   display:inline-flex;
   align-items:center;
   justify-content:center;
+  gap:8px;
   border:0;
-  background:var(--primary);
-  color:white;
-  padding:11px 17px;
-  border-radius:12px;
   cursor:pointer;
-  text-decoration:none;
-  font-size:14px;
+  border-radius:14px;
+  padding:13px 19px;
   font-family:inherit;
-  transition:.2s;
+  font-size:13px;
+  font-weight:800;
+  transition:
+    transform .2s,
+    box-shadow .2s,
+    background .2s;
 }
 
 .btn:hover {
-  transform:translateY(-1px);
-  background:var(--primary-dark);
+  transform:translateY(-2px);
+}
+
+.btn-primary {
+  color:white;
+  background:
+    linear-gradient(
+      135deg,
+      #6366f1,
+      #7c3aed
+    );
+  box-shadow:
+    0 12px 25px rgba(79,70,229,.28);
 }
 
 .btn-light {
   background:white;
-  color:#30328f;
+  color:#312e81;
+  box-shadow:0 10px 25px rgba(0,0,0,.12);
 }
 
-.btn-light:hover {
-  background:#f4f5ff;
+.btn-soft {
+  background:#eef2ff;
+  color:#4338ca;
+}
+
+.features {
+  display:grid;
+  grid-template-columns:
+    repeat(3,1fr);
+  gap:14px;
+  margin:20px 0 38px;
+}
+
+.feature {
+  display:flex;
+  align-items:center;
+  gap:13px;
+  padding:18px;
+  background:rgba(255,255,255,.8);
+  border:1px solid #e8eaf2;
+  border-radius:20px;
+  box-shadow:0 10px 35px rgba(15,23,42,.04);
+}
+
+.feature-icon {
+  width:44px;
+  height:44px;
+  flex:0 0 44px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:14px;
+  background:#eef2ff;
+  font-size:21px;
+}
+
+.feature strong {
+  display:block;
+  margin-bottom:4px;
+  font-size:13px;
+}
+
+.feature span {
+  color:#64748b;
+  font-size:11px;
 }
 
 .section-head {
   display:flex;
+  align-items:end;
   justify-content:space-between;
-  align-items:center;
-  gap:10px;
-  margin:0 0 18px;
+  gap:15px;
+  margin:15px 0 18px;
 }
 
-.section-title {
+.section-head h2 {
   margin:0;
-  font-size:23px;
+  font-size:25px;
 }
 
-.section-subtitle {
-  color:var(--muted);
-  font-size:13px;
+.section-head p {
+  margin:6px 0 0;
+  color:#64748b;
+  font-size:12px;
+}
+
+.section-badge {
+  padding:8px 12px;
+  background:#eef2ff;
+  color:#4f46e5;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:bold;
 }
 
 .products {
   display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(235px,1fr));
+  grid-template-columns:
+    repeat(auto-fill,minmax(245px,1fr));
   gap:18px;
 }
 
-.card {
-  background:var(--card);
-  border:1px solid var(--border);
-  border-radius:20px;
-  padding:18px;
-  box-shadow:0 8px 28px rgba(31,41,55,.05);
-  transition:.25s;
+.product-card {
+  position:relative;
+  overflow:hidden;
+  background:rgba(255,255,255,.94);
+  border:1px solid #e7eaf1;
+  border-radius:23px;
+  padding:15px;
+  box-shadow:
+    0 10px 35px rgba(15,23,42,.055);
+  transition:
+    transform .25s,
+    box-shadow .25s,
+    border-color .25s;
 }
 
-.card:hover {
-  transform:translateY(-4px);
-  box-shadow:0 14px 35px rgba(31,41,55,.09);
+.product-card:hover {
+  transform:translateY(-6px);
+  border-color:#c7d2fe;
+  box-shadow:
+    0 20px 45px rgba(79,70,229,.12);
 }
 
 .product-image {
-  min-height:150px;
+  min-height:190px;
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size:64px;
-  border-radius:16px;
-  background:linear-gradient(135deg,#f1f2ff,#fafaff);
-  margin-bottom:15px;
+  border-radius:18px;
+  font-size:72px;
+  background:
+    radial-gradient(
+      circle at 50% 30%,
+      #eef2ff,
+      #f8fafc 68%
+    );
+  border:1px solid #eef2f7;
 }
 
-.card h3 {
-  margin:8px 0;
-  font-size:18px;
+.product-body {
+  padding:16px 5px 4px;
 }
 
-.card p {
-  color:var(--muted);
+.product-body h3 {
+  margin:0 0 8px;
+  font-size:17px;
+}
+
+.product-body p {
+  margin:0;
+  min-height:52px;
+  color:#64748b;
+  font-size:12px;
   line-height:1.9;
-  min-height:48px;
+}
+
+.product-bottom {
+  display:flex;
+  align-items:end;
+  justify-content:space-between;
+  gap:10px;
+  margin-top:17px;
+}
+
+.price-label {
+  display:block;
+  color:#94a3b8;
+  font-size:10px;
+  margin-bottom:4px;
 }
 
 .price {
+  color:#312e81;
+  font-size:17px;
   font-weight:900;
-  color:var(--primary);
-  margin:16px 0;
-  font-size:18px;
 }
 
-.loading {
+.product-btn {
+  padding:10px 13px;
+  font-size:11px;
+  white-space:nowrap;
+}
+
+.loading,
+.empty {
   grid-column:1/-1;
   text-align:center;
-  padding:40px;
-  color:var(--muted);
+  padding:45px 20px;
   background:white;
-  border-radius:20px;
-  border:1px solid var(--border);
+  border:1px solid #e7eaf1;
+  border-radius:22px;
+  color:#64748b;
 }
 
-footer {
-  margin-top:25px;
-  padding:30px 20px;
-  text-align:center;
-  color:var(--muted);
-  border-top:1px solid var(--border);
-  background:white;
+.footer {
+  margin-top:30px;
+  background:#111827;
+  color:#cbd5e1;
 }
 
-@media(max-width:650px) {
+.footer-inner {
+  max-width:1150px;
+  margin:auto;
+  padding:30px 16px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:20px;
+}
 
-  .nav {
-    align-items:flex-start;
+.footer-brand {
+  color:white;
+  font-weight:900;
+}
+
+.footer small {
+  display:block;
+  margin-top:5px;
+  color:#94a3b8;
+}
+
+.footer-links {
+  display:flex;
+  gap:8px;
+}
+
+.footer-links a {
+  color:#cbd5e1;
+  padding:8px 10px;
+  border-radius:9px;
+}
+
+.footer-links a:hover {
+  background:#1f2937;
+}
+
+@media(max-width:700px) {
+
+  .header {
+    padding:11px 12px;
   }
 
-  .nav-links {
-    justify-content:flex-end;
+  .nav {
+    gap:8px;
+  }
+
+  .logo-mark {
+    width:40px;
+    height:40px;
+    border-radius:12px;
+  }
+
+  .logo-text {
+    font-size:15px;
   }
 
   .nav-links a {
-    padding:7px 8px;
-    font-size:12px;
+    padding:8px 8px;
+    font-size:11px;
   }
 
-  .hero {
-    padding:35px 20px;
-    border-radius:22px;
-  }
-
-  .hero h1 {
-    font-size:27px;
+  .nav-links a:last-child {
+    display:none;
   }
 
   .container {
-    padding:20px 13px 35px;
+    padding:16px 12px 35px;
   }
+
+  .hero {
+    min-height:auto;
+    padding:34px 22px;
+    border-radius:24px;
+  }
+
+  .hero h1 {
+    font-size:36px;
+  }
+
+  .hero p {
+    font-size:13px;
+  }
+
+  .hero-buttons {
+    flex-direction:column;
+  }
+
+  .hero-buttons .btn {
+    width:100%;
+  }
+
+  .features {
+    grid-template-columns:1fr;
+    gap:10px;
+    margin:14px 0 30px;
+  }
+
+  .feature {
+    padding:14px;
+  }
+
+  .section-head {
+    align-items:flex-start;
+    flex-direction:column;
+  }
+
+  .section-head h2 {
+    font-size:22px;
+  }
+
+  .products {
+    grid-template-columns:
+      repeat(2,minmax(0,1fr));
+    gap:11px;
+  }
+
+  .product-card {
+    padding:9px;
+    border-radius:18px;
+  }
+
+  .product-image {
+    min-height:135px;
+    font-size:50px;
+    border-radius:14px;
+  }
+
+  .product-body {
+    padding:11px 3px 3px;
+  }
+
+  .product-body h3 {
+    font-size:13px;
+  }
+
+  .product-body p {
+    min-height:auto;
+    font-size:10px;
+    line-height:1.7;
+  }
+
+  .product-bottom {
+    align-items:stretch;
+    flex-direction:column;
+    margin-top:12px;
+  }
+
+  .price {
+    font-size:14px;
+  }
+
+  .product-btn {
+    width:100%;
+  }
+
+  .footer-inner {
+    flex-direction:column;
+    text-align:center;
+  }
+}
+
+@media(max-width:390px) {
 
   .products {
     grid-template-columns:1fr;
   }
+
+  .nav-links a {
+    display:none;
+  }
+
+  .nav-links a:first-child {
+    display:block;
+  }
 }
 
 </style>
+
 </head>
 
 <body>
 
-<header>
+<header class="header">
+
 <div class="nav">
 
 <a class="logo" href="/">
+
+<div class="logo-mark">
+D
+</div>
+
+<div class="logo-text">
 ${STORE_NAME}
 <small>${STORE_EN}</small>
+</div>
+
 </a>
 
-<div class="nav-links">
-<a href="/">خانه</a>
-<a href="/account">حساب من</a>
-<a href="/admin">مدیریت</a>
-</div>
+<nav class="nav-links">
+
+<a href="/">
+خانه
+</a>
+
+<a href="#products">
+محصولات
+</a>
+
+<a href="/account">
+حساب من
+</a>
+
+<a href="/admin">
+مدیریت
+</a>
+
+</nav>
 
 </div>
+
 </header>
+
 
 <main class="container">
 
@@ -1393,50 +1765,134 @@ ${STORE_NAME}
 
 <div class="hero-content">
 
-<div class="hero-badge">
+<div class="eyebrow">
+<span></span>
 فروشگاه دیجیتال ${STORE_EN}
 </div>
 
 <h1>
-ابزارها و محصولات دیجیتال برای شما
+ابزارهای دیجیتال
+برای شما
 </h1>
 
+<div class="hero-title-en">
+DIGITAL PRODUCTS • SIMPLE • MODERN
+</div>
+
 <p>
-${STORE_NAME} یک فروشگاه دیجیتال برای ارائه
-محصولات و ابزارهای کاربردی است؛ ساده، سریع و مناسب موبایل.
+در ${STORE_NAME} محصولات و ابزارهای دیجیتال
+را در یک فضای ساده، سریع و مناسب موبایل پیدا کنید.
 </p>
 
 <div class="hero-buttons">
 
-<a class="btn btn-light" href="#products">
+<a
+class="btn btn-primary"
+href="#products"
+>
 مشاهده محصولات
+<span>←</span>
 </a>
 
-<a class="btn"
-href="/account">
+<a
+class="btn btn-light"
+href="/account"
+>
 حساب کاربری
 </a>
 
 </div>
 
 </div>
+
 </section>
+
+
+<section class="features">
+
+<div class="feature">
+
+<div class="feature-icon">
+⚡
+</div>
+
+<div>
+<strong>
+ساده و سریع
+</strong>
+
+<span>
+تجربه خرید ساده و روان
+</span>
+</div>
+
+</div>
+
+
+<div class="feature">
+
+<div class="feature-icon">
+📱
+</div>
+
+<div>
+<strong>
+مناسب موبایل
+</strong>
+
+<span>
+طراحی شده برای صفحه‌های کوچک
+</span>
+</div>
+
+</div>
+
+
+<div class="feature">
+
+<div class="feature-icon">
+🛍️
+</div>
+
+<div>
+<strong>
+محصولات دیجیتال
+</strong>
+
+<span>
+محصولات کاربردی در یک فروشگاه
+</span>
+</div>
+
+</div>
+
+</section>
+
+
+<section id="products">
 
 <div class="section-head">
 
 <div>
-<h2 class="section-title">
-محصولات
+
+<h2>
+محصولات فروشگاه
 </h2>
 
-<div class="section-subtitle">
-محصولات دیجیتال موجود در فروشگاه
+<p>
+محصولات دیجیتال موجود در ${STORE_NAME}
+</p>
+
 </div>
+
+<div class="section-badge">
+DigiMarixo
 </div>
 
 </div>
 
-<div id="products" class="products">
+
+<div id="productsBox" class="products">
 
 <div class="loading">
 در حال دریافت محصولات...
@@ -1444,27 +1900,54 @@ href="/account">
 
 </div>
 
+</section>
+
 </main>
 
-<footer>
-${STORE_NAME} — ${STORE_EN}
+
+<footer class="footer">
+
+<div class="footer-inner">
+
+<div>
+
+<div class="footer-brand">
+${STORE_NAME}
+</div>
+
+<small>
+${STORE_EN} — فروشگاه دیجیتال
+</small>
+
+</div>
+
+<div class="footer-links">
+
+<a href="/">
+خانه
+</a>
+
+<a href="/account">
+حساب من
+</a>
+
+<a href="/admin">
+مدیریت
+</a>
+
+</div>
+
+</div>
+
 </footer>
 
-<script>
 
-function escapeHtmlClient(value) {
-  return String(value ?? "")
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
-}
+<script>
 
 async function loadProducts() {
 
   const box =
-    document.getElementById("products");
+    document.getElementById("productsBox");
 
   try {
 
@@ -1480,10 +1963,13 @@ async function loadProducts() {
       );
     }
 
-    if (!data.products || !data.products.length) {
+    if (
+      !data.products ||
+      data.products.length === 0
+    ) {
 
       box.innerHTML =
-        '<div class="loading">' +
+        '<div class="empty">' +
         'هنوز محصولی ثبت نشده است.' +
         '</div>';
 
@@ -1494,37 +1980,55 @@ async function loadProducts() {
       data.products.map(function(product) {
 
         return (
-          '<div class="card">' +
+          '<article class="product-card">' +
 
           '<div class="product-image">' +
-          escapeHtmlClient(
+          escapeHtml(
             product.image || "🛍️"
           ) +
           '</div>' +
 
+          '<div class="product-body">' +
+
           '<h3>' +
-          escapeHtmlClient(product.name) +
+          escapeHtml(product.name) +
           '</h3>' +
 
           '<p>' +
-          escapeHtmlClient(
+          escapeHtml(
             product.description || ""
           ) +
           '</p>' +
 
+          '<div class="product-bottom">' +
+
+          '<div>' +
+
+          '<span class="price-label">' +
+          'قیمت' +
+          '</span>' +
+
           '<div class="price">' +
-          escapeHtmlClient(
+          escapeHtml(
             product.price || "تماس بگیرید"
           ) +
           '</div>' +
 
-          '<a class="btn" href="/product/' +
+          '</div>' +
+
+          '<a ' +
+          'class="btn btn-primary product-btn" ' +
+          'href="/product/' +
           product.id +
           '">' +
           'مشاهده و سفارش' +
           '</a>' +
 
-          '</div>'
+          '</div>' +
+
+          '</div>' +
+
+          '</article>'
         );
 
       }).join("");
@@ -1532,24 +2036,26 @@ async function loadProducts() {
   } catch (error) {
 
     box.innerHTML =
-      '<div class="loading">' +
+      '<div class="empty">' +
       'دریافت محصولات انجام نشد.' +
       '</div>';
   }
 }
+
 
 loadProducts();
 
 </script>
 
 </body>
+
 </html>
 `;
 }
 
 
 // ============================================================
-// PRODUCT PAGE
+// PRODUCT PAGE - PREMIUM
 // ============================================================
 
 function productPage(product) {
@@ -1560,7 +2066,9 @@ function productPage(product) {
 <head>
 
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<meta name="viewport"
+content="width=device-width, initial-scale=1.0">
 
 <title>
 ${escapeHtml(product.name)} | ${STORE_NAME}
@@ -1575,71 +2083,182 @@ ${escapeHtml(product.name)} | ${STORE_NAME}
 body {
   margin:0;
   font-family:Tahoma,Arial,sans-serif;
-  background:#f5f7ff;
   color:#172033;
+  background:
+    radial-gradient(
+      circle at top right,
+      #eef2ff,
+      transparent 35%
+    ),
+    #f7f8fc;
+}
+
+.header {
+  padding:14px 16px;
+  background:rgba(255,255,255,.85);
+  backdrop-filter:blur(16px);
+  border-bottom:1px solid #e5e7eb;
+}
+
+.nav {
+  max-width:1000px;
+  margin:auto;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+
+.brand {
+  font-weight:900;
+  color:#111827;
+}
+
+.brand small {
+  display:block;
+  font-size:9px;
+  color:#64748b;
+  direction:ltr;
 }
 
 .container {
   max-width:900px;
   margin:auto;
-  padding:28px 16px;
+  padding:28px 16px 60px;
 }
 
 .back {
   display:inline-flex;
-  margin-bottom:18px;
-  text-decoration:none;
+  margin-bottom:15px;
   color:#4f46e5;
-  font-size:14px;
+  font-size:13px;
+  font-weight:bold;
 }
 
 .card {
+  overflow:hidden;
   background:white;
-  border:1px solid #e7e9f2;
-  border-radius:24px;
-  padding:25px;
-  box-shadow:0 12px 35px rgba(31,41,55,.07);
+  border:1px solid #e5e7eb;
+  border-radius:28px;
+  box-shadow:
+    0 20px 55px rgba(15,23,42,.08);
+}
+
+.product-top {
+  display:grid;
+  grid-template-columns: .9fr 1.1fr;
 }
 
 .image {
-  text-align:center;
-  font-size:90px;
-  padding:35px;
-  border-radius:20px;
-  background:linear-gradient(135deg,#f0f1ff,#fafaff);
+  min-height:390px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:120px;
+  background:
+    radial-gradient(
+      circle,
+      #eef2ff,
+      #f8fafc 70%
+    );
+}
+
+.info {
+  padding:42px;
+}
+
+.label {
+  display:inline-block;
+  padding:7px 11px;
+  border-radius:999px;
+  background:#eef2ff;
+  color:#4f46e5;
+  font-size:10px;
+  font-weight:bold;
 }
 
 h1 {
-  margin:25px 0 12px;
+  margin:18px 0 13px;
+  font-size:32px;
 }
 
 .description {
+  color:#64748b;
   line-height:2;
-  color:#5f6675;
+  font-size:14px;
+}
+
+.price-box {
+  margin:25px 0;
+  padding:17px;
+  border-radius:17px;
+  background:#f8fafc;
+  border:1px solid #e5e7eb;
+}
+
+.price-label {
+  color:#94a3b8;
+  font-size:10px;
 }
 
 .price {
-  font-size:24px;
+  margin-top:6px;
+  color:#312e81;
+  font-size:25px;
   font-weight:900;
-  color:#5657e9;
-  margin:25px 0;
 }
 
 .btn {
+  width:100%;
   border:0;
-  background:#5758ed;
+  padding:14px;
+  border-radius:14px;
   color:white;
-  padding:13px 20px;
-  border-radius:12px;
-  cursor:pointer;
+  background:
+    linear-gradient(
+      135deg,
+      #4f46e5,
+      #7c3aed
+    );
   font-family:inherit;
+  font-size:14px;
+  font-weight:900;
+  cursor:pointer;
+  box-shadow:
+    0 12px 25px rgba(79,70,229,.22);
+}
+
+.btn:hover {
+  opacity:.94;
 }
 
 #message {
-  margin-top:20px;
+  margin-top:15px;
   padding:12px;
   border-radius:12px;
-  background:#f5f7ff;
+  background:#f8fafc;
+  color:#475569;
+  font-size:12px;
+  line-height:1.8;
+}
+
+@media(max-width:700px) {
+
+  .product-top {
+    grid-template-columns:1fr;
+  }
+
+  .image {
+    min-height:260px;
+    font-size:90px;
+  }
+
+  .info {
+    padding:25px 20px 28px;
+  }
+
+  h1 {
+    font-size:25px;
+  }
 }
 
 </style>
@@ -1647,6 +2266,30 @@ h1 {
 </head>
 
 <body>
+
+<header class="header">
+
+<div class="nav">
+
+<a
+class="brand"
+href="/"
+>
+${STORE_NAME}
+<small>${STORE_EN}</small>
+</a>
+
+<a
+class="back"
+style="margin:0"
+href="/"
+>
+فروشگاه
+</a>
+
+</div>
+
+</header>
 
 <div class="container">
 
@@ -1656,9 +2299,17 @@ h1 {
 
 <div class="card">
 
+<div class="product-top">
+
 <div class="image">
 ${escapeHtml(product.image || "🛍️")}
 </div>
+
+<div class="info">
+
+<span class="label">
+محصول دیجیتال
+</span>
 
 <h1>
 ${escapeHtml(product.name)}
@@ -1668,11 +2319,22 @@ ${escapeHtml(product.name)}
 ${escapeHtml(product.description || "")}
 </div>
 
+<div class="price-box">
+
+<div class="price-label">
+قیمت محصول
+</div>
+
 <div class="price">
 ${escapeHtml(product.price || "تماس بگیرید")}
 </div>
 
-<button class="btn" onclick="buyProduct()">
+</div>
+
+<button
+class="btn"
+onclick="buyProduct()"
+>
 ثبت سفارش
 </button>
 
@@ -1681,6 +2343,11 @@ ${escapeHtml(product.price || "تماس بگیرید")}
 </div>
 
 </div>
+
+</div>
+
+</div>
+
 
 <script>
 
@@ -1743,13 +2410,14 @@ async function buyProduct() {
 </script>
 
 </body>
+
 </html>
 `;
 }
 
 
 // ============================================================
-// ACCOUNT PAGE
+// ACCOUNT PAGE - PREMIUM
 // ============================================================
 
 function accountPage() {
@@ -1760,9 +2428,13 @@ function accountPage() {
 <head>
 
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>حساب کاربری | ${STORE_NAME}</title>
+<meta name="viewport"
+content="width=device-width, initial-scale=1.0">
+
+<title>
+حساب کاربری | ${STORE_NAME}
+</title>
 
 <style>
 
@@ -1772,88 +2444,188 @@ function accountPage() {
 
 body {
   margin:0;
-  background:#f5f7ff;
-  font-family:Tahoma,Arial,sans-serif;
+  background:
+    radial-gradient(
+      circle at top right,
+      #eef2ff,
+      transparent 35%
+    ),
+    #f7f8fc;
   color:#172033;
+  font-family:Tahoma,Arial,sans-serif;
+}
+
+.header {
+  padding:14px 16px;
+  background:rgba(255,255,255,.86);
+  backdrop-filter:blur(16px);
+  border-bottom:1px solid #e5e7eb;
+}
+
+.nav {
+  max-width:1000px;
+  margin:auto;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+
+.brand {
+  color:#111827;
+  font-weight:900;
+}
+
+.brand small {
+  display:block;
+  color:#64748b;
+  font-size:9px;
+  direction:ltr;
+}
+
+.nav a {
+  color:#4f46e5;
+  font-size:12px;
+  font-weight:bold;
 }
 
 .container {
-  max-width:900px;
+  max-width:1000px;
   margin:auto;
-  padding:28px 16px;
+  padding:28px 16px 60px;
+}
+
+.hero-title {
+  margin-bottom:20px;
+}
+
+.hero-title h1 {
+  margin:0 0 8px;
+  font-size:28px;
+}
+
+.hero-title p {
+  margin:0;
+  color:#64748b;
+  font-size:13px;
+}
+
+.grid {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:18px;
 }
 
 .card {
   background:white;
-  border:1px solid #e7e9f2;
+  border:1px solid #e5e7eb;
   border-radius:22px;
   padding:23px;
-  margin-bottom:18px;
-  box-shadow:0 10px 30px rgba(31,41,55,.06);
+  box-shadow:0 12px 35px rgba(15,23,42,.055);
 }
 
-h1,h2 {
+.card h2 {
   margin-top:0;
+  font-size:18px;
 }
 
 input {
   width:100%;
-  padding:13px;
-  margin:7px 0 12px;
-  border:1px solid #dfe2ec;
+  padding:13px 14px;
+  margin:6px 0 11px;
+  border:1px solid #dbe1ea;
   border-radius:12px;
-  font-family:inherit;
   outline:none;
+  font-family:inherit;
+  background:#fbfcfe;
 }
 
 input:focus {
-  border-color:#6366f1;
-  box-shadow:0 0 0 3px rgba(99,102,241,.1);
+  border-color:#818cf8;
+  box-shadow:0 0 0 3px rgba(99,102,241,.10);
 }
 
 button {
   border:0;
-  background:#5758ed;
+  background:
+    linear-gradient(
+      135deg,
+      #4f46e5,
+      #7c3aed
+    );
   color:white;
-  padding:11px 17px;
-  border-radius:11px;
+  padding:12px 17px;
+  border-radius:12px;
   cursor:pointer;
   font-family:inherit;
+  font-weight:bold;
 }
 
 button.secondary {
-  background:#eef0f7;
-  color:#303542;
+  background:#eef2ff;
+  color:#4338ca;
 }
 
 hr {
   border:0;
-  border-top:1px solid #eceef4;
+  border-top:1px solid #eef0f4;
   margin:25px 0;
+}
+
+.message {
+  margin-top:12px;
+  padding:10px;
+  border-radius:11px;
+  background:#f8fafc;
+  font-size:12px;
 }
 
 .orders {
   display:grid;
-  gap:12px;
+  gap:11px;
 }
 
 .order {
-  border:1px solid #e7e9f2;
+  border:1px solid #e5e7eb;
   border-radius:15px;
-  padding:16px;
+  padding:15px;
+  background:#fbfcff;
+}
+
+.order strong {
+  color:#312e81;
 }
 
 .status {
   display:inline-block;
-  background:#f0f1ff;
-  color:#5557df;
-  padding:6px 10px;
+  background:#eef2ff;
+  color:#4338ca;
+  padding:5px 9px;
   border-radius:8px;
   margin-top:8px;
+  font-size:11px;
 }
 
-#authMessage {
-  margin-top:12px;
+.back {
+  display:inline-block;
+  margin-top:20px;
+  color:#4f46e5;
+  font-size:12px;
+  font-weight:bold;
+}
+
+@media(max-width:700px) {
+
+  .grid {
+    grid-template-columns:1fr;
+  }
+
+  .hero-title h1 {
+    font-size:24px;
+  }
+
+  .card {
+    padding:19px;
+  }
 }
 
 </style>
@@ -1862,9 +2634,26 @@ hr {
 
 <body>
 
+<header class="header">
+
+<div class="nav">
+
+<div class="brand">
+${STORE_NAME}
+<small>${STORE_EN}</small>
+</div>
+
+<a href="/">
+بازگشت به فروشگاه
+</a>
+
+</div>
+
+</header>
+
 <div class="container">
 
-<div class="card">
+<div class="hero-title">
 
 <h1>
 حساب کاربری
@@ -1874,9 +2663,18 @@ hr {
 مدیریت حساب و سفارش‌های ${STORE_NAME}
 </p>
 
+</div>
+
+
+<div class="grid">
+
+<div class="card">
+
 <div id="auth">
 
-<h2>ورود</h2>
+<h2>
+ورود به حساب
+</h2>
 
 <input
 id="loginIdentity"
@@ -1895,7 +2693,9 @@ placeholder="رمز عبور"
 
 <hr>
 
-<h2>ثبت‌نام</h2>
+<h2>
+ایجاد حساب
+</h2>
 
 <input
 id="registerUsername"
@@ -1914,28 +2714,35 @@ placeholder="رمز عبور"
 >
 
 <button onclick="register()">
-ایجاد حساب
+ثبت‌نام
 </button>
 
-<div id="authMessage"></div>
+<div id="authMessage" class="message"></div>
 
 </div>
+
 
 <div id="userArea" style="display:none">
 
 <h2>
-اطلاعات حساب
+حساب من
 </h2>
 
 <div id="userInfo"></div>
 
-<button class="secondary" onclick="logout()">
-خروج
+<br>
+
+<button
+class="secondary"
+onclick="logout()"
+>
+خروج از حساب
 </button>
 
 </div>
 
 </div>
+
 
 <div class="card">
 
@@ -1949,22 +2756,17 @@ placeholder="رمز عبور"
 
 </div>
 
-<a href="/">
-بازگشت به فروشگاه
+</div>
+
+
+<a class="back" href="/">
+← بازگشت به فروشگاه
 </a>
 
 </div>
 
-<script>
 
-function escapeHtmlClient(value) {
-  return String(value ?? "")
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
-}
+<script>
 
 async function loadMe() {
 
@@ -1985,11 +2787,11 @@ async function loadMe() {
     document.getElementById("userInfo")
       .innerHTML =
         '<p>نام کاربری: <strong>' +
-        escapeHtmlClient(data.user.username) +
+        escapeHtml(data.user.username) +
         '</strong></p>' +
 
         '<p>ایمیل: ' +
-        escapeHtmlClient(data.user.email) +
+        escapeHtml(data.user.email) +
         '</p>';
 
     loadOrders();
@@ -2000,16 +2802,24 @@ async function loadMe() {
 async function register() {
 
   const username =
-    document.getElementById("registerUsername").value;
+    document.getElementById(
+      "registerUsername"
+    ).value;
 
   const email =
-    document.getElementById("registerEmail").value;
+    document.getElementById(
+      "registerEmail"
+    ).value;
 
   const password =
-    document.getElementById("registerPassword").value;
+    document.getElementById(
+      "registerPassword"
+    ).value;
 
   const message =
-    document.getElementById("authMessage");
+    document.getElementById(
+      "authMessage"
+    );
 
   const response =
     await fetch("/api/register", {
@@ -2025,6 +2835,7 @@ async function register() {
         email,
         password
       })
+
     });
 
   const data =
@@ -2040,13 +2851,19 @@ async function register() {
 async function login() {
 
   const identity =
-    document.getElementById("loginIdentity").value;
+    document.getElementById(
+      "loginIdentity"
+    ).value;
 
   const password =
-    document.getElementById("loginPassword").value;
+    document.getElementById(
+      "loginPassword"
+    ).value;
 
   const message =
-    document.getElementById("authMessage");
+    document.getElementById(
+      "authMessage"
+    );
 
   const response =
     await fetch("/api/login", {
@@ -2061,6 +2878,7 @@ async function login() {
         username:identity,
         password
       })
+
     });
 
   const data =
@@ -2131,18 +2949,20 @@ async function loadOrders() {
         '</strong>' +
 
         '<p>' +
-        escapeHtmlClient(order.product_name) +
+        escapeHtml(
+          order.product_name
+        ) +
         '</p>' +
 
         '<p>قیمت: ' +
-        escapeHtmlClient(
+        escapeHtml(
           order.product_price || "-"
         ) +
         '</p>' +
 
         '<span class="status">' +
         'وضعیت: ' +
-        escapeHtmlClient(order.status) +
+        escapeHtml(order.status) +
         '</span>' +
 
         '</div>'
@@ -2159,13 +2979,14 @@ loadMe();
 </script>
 
 </body>
+
 </html>
 `;
 }
 
 
 // ============================================================
-// ADMIN PAGE
+// ADMIN PAGE - PREMIUM
 // ============================================================
 
 function adminPage() {
@@ -2176,9 +2997,13 @@ function adminPage() {
 <head>
 
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>مدیریت | ${STORE_NAME}</title>
+<meta name="viewport"
+content="width=device-width, initial-scale=1.0">
+
+<title>
+مدیریت | ${STORE_NAME}
+</title>
 
 <style>
 
@@ -2188,80 +3013,127 @@ function adminPage() {
 
 body {
   margin:0;
-  background:#f5f7ff;
+  background:
+    radial-gradient(
+      circle at top right,
+      #eef2ff,
+      transparent 30%
+    ),
+    #f7f8fc;
   color:#172033;
   font-family:Tahoma,Arial,sans-serif;
+}
+
+.header {
+  padding:14px 16px;
+  background:rgba(255,255,255,.86);
+  backdrop-filter:blur(16px);
+  border-bottom:1px solid #e5e7eb;
+}
+
+.nav {
+  max-width:1100px;
+  margin:auto;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+
+.brand {
+  font-weight:900;
+  color:#111827;
+}
+
+.brand small {
+  display:block;
+  color:#64748b;
+  font-size:9px;
+  direction:ltr;
+}
+
+.nav a {
+  color:#4f46e5;
+  font-size:12px;
+  font-weight:bold;
 }
 
 .container {
   max-width:1100px;
   margin:auto;
-  padding:25px 16px;
+  padding:25px 16px 60px;
 }
 
 .card {
   background:white;
-  border:1px solid #e7e9f2;
-  border-radius:20px;
+  border:1px solid #e5e7eb;
+  border-radius:22px;
   padding:22px;
   margin-bottom:18px;
-  box-shadow:0 9px 28px rgba(31,41,55,.06);
+  box-shadow:0 10px 32px rgba(15,23,42,.05);
 }
 
-h1,h2 {
+.card h1 {
   margin-top:0;
+  font-size:25px;
+}
+
+.card h2 {
+  margin-top:0;
+  font-size:18px;
 }
 
 input,
 textarea,
 select {
   width:100%;
-  padding:12px;
-  margin:6px 0 12px;
-  border:1px solid #dfe2ec;
+  padding:12px 13px;
+  margin:6px 0 11px;
+  border:1px solid #dbe1ea;
   border-radius:11px;
   font-family:inherit;
+  background:#fbfcfe;
   outline:none;
 }
 
+input:focus,
+textarea:focus,
+select:focus {
+  border-color:#818cf8;
+  box-shadow:0 0 0 3px rgba(99,102,241,.10);
+}
+
 textarea {
-  min-height:100px;
+  min-height:105px;
   resize:vertical;
 }
 
 button {
   border:0;
-  background:#5758ed;
+  background:
+    linear-gradient(
+      135deg,
+      #4f46e5,
+      #7c3aed
+    );
   color:white;
-  padding:10px 15px;
-  border-radius:10px;
+  padding:11px 15px;
+  border-radius:11px;
   cursor:pointer;
   font-family:inherit;
+  font-weight:bold;
 }
 
 button.danger {
-  background:#dc3545;
+  background:#dc2626;
 }
 
 button.secondary {
-  background:#eef0f7;
-  color:#303542;
+  background:#eef2ff;
+  color:#4338ca;
 }
 
 .hidden {
   display:none;
-}
-
-.products,
-.orders {
-  display:grid;
-  gap:12px;
-}
-
-.item {
-  border:1px solid #e7e9f2;
-  border-radius:15px;
-  padding:16px;
 }
 
 .row {
@@ -2271,23 +3143,69 @@ button.secondary {
   align-items:center;
 }
 
+.products,
+.orders {
+  display:grid;
+  gap:12px;
+}
+
+.item {
+  border:1px solid #e5e7eb;
+  border-radius:16px;
+  padding:16px;
+  background:#fbfcff;
+}
+
+.item strong {
+  color:#312e81;
+}
+
 .order-info {
   line-height:2;
+  font-size:13px;
 }
 
 .badge {
   display:inline-block;
   padding:5px 9px;
-  background:#f0f1ff;
-  color:#5557df;
+  background:#eef2ff;
+  color:#4338ca;
   border-radius:8px;
-  font-size:13px;
+  font-size:11px;
 }
 
 .message {
   margin-top:10px;
   padding:10px;
-  border-radius:9px;
+  border-radius:10px;
+  background:#f8fafc;
+  font-size:12px;
+}
+
+.back {
+  color:#4f46e5;
+  font-size:12px;
+  font-weight:bold;
+}
+
+@media(max-width:700px) {
+
+  .container {
+    padding:18px 12px 45px;
+  }
+
+  .card {
+    padding:18px;
+    border-radius:19px;
+  }
+
+  .card h1 {
+    font-size:21px;
+  }
+
+  .row button {
+    flex:1;
+  }
 }
 
 </style>
@@ -2296,6 +3214,24 @@ button.secondary {
 
 <body>
 
+<header class="header">
+
+<div class="nav">
+
+<div class="brand">
+${STORE_NAME}
+<small>${STORE_EN}</small>
+</div>
+
+<a href="/">
+بازگشت به فروشگاه
+</a>
+
+</div>
+
+</header>
+
+
 <div class="container">
 
 <div class="card">
@@ -2303,6 +3239,10 @@ button.secondary {
 <h1>
 پنل مدیریت ${STORE_NAME}
 </h1>
+
+<p style="color:#64748b;font-size:12px">
+مدیریت محصولات و سفارش‌های فروشگاه
+</p>
 
 <div id="loginBox">
 
@@ -2326,23 +3266,33 @@ placeholder="رمز مدیریت"
 ورود به مدیریت
 </button>
 
-<div id="loginMessage"></div>
+<div id="loginMessage" class="message"></div>
 
 </div>
+
 
 <div id="adminArea" class="hidden">
 
 <div class="row">
 
-<button class="secondary" onclick="adminLogout()">
+<button
+class="secondary"
+onclick="adminLogout()"
+>
 خروج از مدیریت
 </button>
 
-<button class="secondary" onclick="loadProducts()">
+<button
+class="secondary"
+onclick="loadProducts()"
+>
 بروزرسانی محصولات
 </button>
 
-<button class="secondary" onclick="loadOrders()">
+<button
+class="secondary"
+onclick="loadOrders()"
+>
 بروزرسانی سفارش‌ها
 </button>
 
@@ -2352,12 +3302,13 @@ placeholder="رمز مدیریت"
 
 </div>
 
+
 <div id="dashboard" class="hidden">
 
 <div class="card">
 
 <h2>
-افزودن محصول
+افزودن محصول جدید
 </h2>
 
 <input
@@ -2385,9 +3336,10 @@ value="🛍️"
 افزودن محصول
 </button>
 
-<div id="productMessage"></div>
+<div id="productMessage" class="message"></div>
 
 </div>
+
 
 <div class="card">
 
@@ -2400,6 +3352,7 @@ value="🛍️"
 </div>
 
 </div>
+
 
 <div class="card">
 
@@ -2415,22 +3368,15 @@ value="🛍️"
 
 </div>
 
-<a href="/">
-بازگشت به فروشگاه
+
+<a class="back" href="/">
+← بازگشت به فروشگاه
 </a>
 
 </div>
 
-<script>
 
-function escapeHtmlClient(value) {
-  return String(value ?? "")
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
-}
+<script>
 
 async function checkAdmin() {
 
@@ -2474,13 +3420,19 @@ function showAdmin() {
 async function adminLogin() {
 
   const username =
-    document.getElementById("adminUsername").value;
+    document.getElementById(
+      "adminUsername"
+    ).value;
 
   const password =
-    document.getElementById("adminPassword").value;
+    document.getElementById(
+      "adminPassword"
+    ).value;
 
   const message =
-    document.getElementById("loginMessage");
+    document.getElementById(
+      "loginMessage"
+    );
 
   const response =
     await fetch("/api/admin/login", {
@@ -2495,6 +3447,7 @@ async function adminLogin() {
         username,
         password
       })
+
     });
 
   const data =
@@ -2526,6 +3479,10 @@ async function adminLogout() {
   location.reload();
 }
 
+
+// ============================================================
+// PRODUCTS
+// ============================================================
 
 async function loadProducts() {
 
@@ -2568,17 +3525,17 @@ async function loadProducts() {
         '<div class="item">' +
 
         '<strong>' +
-        escapeHtmlClient(product.name) +
+        escapeHtml(product.name) +
         '</strong>' +
 
         '<p>' +
-        escapeHtmlClient(
+        escapeHtml(
           product.description || ""
         ) +
         '</p>' +
 
         '<p>قیمت: ' +
-        escapeHtmlClient(
+        escapeHtml(
           product.price || "-"
         ) +
         '</p>' +
@@ -2600,34 +3557,49 @@ async function loadProducts() {
 async function createProduct() {
 
   const name =
-    document.getElementById("productName").value;
+    document.getElementById(
+      "productName"
+    ).value;
 
   const description =
-    document.getElementById("productDescription").value;
+    document.getElementById(
+      "productDescription"
+    ).value;
 
   const price =
-    document.getElementById("productPrice").value;
+    document.getElementById(
+      "productPrice"
+    ).value;
 
   const image =
-    document.getElementById("productImage").value;
+    document.getElementById(
+      "productImage"
+    ).value;
 
   const message =
-    document.getElementById("productMessage");
+    document.getElementById(
+      "productMessage"
+    );
 
   const response =
     await fetch(
       "/api/admin/products",
       {
+
         method:"POST",
+
         headers:{
-          "Content-Type":"application/json"
+          "Content-Type":
+            "application/json"
         },
+
         body:JSON.stringify({
           name,
           description,
           price,
           image
         })
+
       }
     );
 
@@ -2641,10 +3613,21 @@ async function createProduct() {
 
   if (data.ok) {
 
-    document.getElementById("productName").value = "";
-    document.getElementById("productDescription").value = "";
-    document.getElementById("productPrice").value = "";
-    document.getElementById("productImage").value = "🛍️";
+    document.getElementById(
+      "productName"
+    ).value = "";
+
+    document.getElementById(
+      "productDescription"
+    ).value = "";
+
+    document.getElementById(
+      "productPrice"
+    ).value = "";
+
+    document.getElementById(
+      "productImage"
+    ).value = "🛍️";
 
     await loadProducts();
   }
@@ -2665,13 +3648,18 @@ async function deleteProduct(id) {
     await fetch(
       "/api/admin/products",
       {
+
         method:"DELETE",
+
         headers:{
-          "Content-Type":"application/json"
+          "Content-Type":
+            "application/json"
         },
+
         body:JSON.stringify({
           id
         })
+
       }
     );
 
@@ -2689,6 +3677,10 @@ async function deleteProduct(id) {
   }
 }
 
+
+// ============================================================
+// ORDERS
+// ============================================================
 
 async function loadOrders() {
 
@@ -2759,36 +3751,36 @@ async function loadOrders() {
         '<br>' +
 
         'مشتری: ' +
-        escapeHtmlClient(order.username) +
+        escapeHtml(order.username) +
 
         '<br>' +
 
         'ایمیل: ' +
-        escapeHtmlClient(order.email) +
+        escapeHtml(order.email) +
 
         '<br>' +
 
         'محصول: ' +
-        escapeHtmlClient(order.product_name) +
+        escapeHtml(order.product_name) +
 
         '<br>' +
 
         'قیمت: ' +
-        escapeHtmlClient(
+        escapeHtml(
           order.product_price || "-"
         ) +
 
         '<br>' +
 
         'تاریخ: ' +
-        escapeHtmlClient(order.created_at) +
+        escapeHtml(order.created_at) +
 
         '<br>' +
 
         'وضعیت فعلی: ' +
 
         '<span class="badge">' +
-        escapeHtmlClient(order.status) +
+        escapeHtml(order.status) +
         '</span>' +
 
         '</div>' +
@@ -2848,14 +3840,19 @@ async function updateOrderStatus(orderId) {
     await fetch(
       "/api/admin/orders/status",
       {
+
         method:"POST",
+
         headers:{
-          "Content-Type":"application/json"
+          "Content-Type":
+            "application/json"
         },
+
         body:JSON.stringify({
           order_id:orderId,
           status
         })
+
       }
     );
 
@@ -2885,6 +3882,7 @@ checkAdmin();
 </script>
 
 </body>
+
 </html>
 `;
 }
@@ -2902,42 +3900,78 @@ function notFoundPage() {
 <head>
 
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>صفحه پیدا نشد | ${STORE_NAME}</title>
+<meta name="viewport"
+content="width=device-width, initial-scale=1.0">
+
+<title>
+صفحه پیدا نشد | ${STORE_NAME}
+</title>
 
 <style>
 
+* {
+  box-sizing:border-box;
+}
+
 body {
   margin:0;
-  background:#f5f7ff;
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:
+    radial-gradient(
+      circle at top right,
+      #eef2ff,
+      transparent 35%
+    ),
+    #f7f8fc;
   font-family:Tahoma,Arial,sans-serif;
   color:#172033;
 }
 
 .container {
-  max-width:700px;
-  margin:90px auto;
-  padding:20px;
-  text-align:center;
+  width:min(92%,600px);
 }
 
 .card {
   background:white;
-  padding:40px;
-  border-radius:24px;
-  border:1px solid #e7e9f2;
-  box-shadow:0 12px 35px rgba(31,41,55,.07);
+  padding:45px 25px;
+  border-radius:26px;
+  text-align:center;
+  border:1px solid #e5e7eb;
+  box-shadow:0 20px 55px rgba(15,23,42,.08);
+}
+
+.code {
+  font-size:65px;
+  font-weight:900;
+  color:#4f46e5;
+}
+
+h2 {
+  margin:5px 0 10px;
+}
+
+p {
+  color:#64748b;
 }
 
 a {
-  display:inline-block;
-  margin-top:20px;
-  background:#5758ed;
+  display:inline-flex;
+  margin-top:18px;
+  background:
+    linear-gradient(
+      135deg,
+      #4f46e5,
+      #7c3aed
+    );
   color:white;
   padding:12px 18px;
-  border-radius:11px;
+  border-radius:12px;
   text-decoration:none;
+  font-weight:bold;
 }
 
 </style>
@@ -2950,11 +3984,17 @@ a {
 
 <div class="card">
 
-<h1>404</h1>
+<div class="code">
+404
+</div>
 
 <h2>
 صفحه پیدا نشد
 </h2>
+
+<p>
+صفحه‌ای که به دنبال آن هستید وجود ندارد.
+</p>
 
 <a href="/">
 بازگشت به فروشگاه
@@ -3010,4 +4050,4 @@ function json(data, status = 200) {
       }
     }
   );
-    }
+          }
