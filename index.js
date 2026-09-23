@@ -23,7 +23,8 @@ export default {
         return json({
           ok: true,
           store: STORE_EN,
-          database: true
+          database: Boolean(env.DB),
+          time: new Date().toISOString()
         });
       }
 
@@ -31,7 +32,10 @@ export default {
          PRODUCTS API
       ========================= */
 
-      if (path === "/api/products" && method === "GET") {
+      if (
+        path === "/api/products" &&
+        method === "GET"
+      ) {
         return json(await getProducts(env));
       }
 
@@ -51,25 +55,127 @@ export default {
         path === "/api/suppliers" &&
         method === "GET"
       ) {
+        if (!isAdmin(request, env)) {
+          return json(
+            {
+              ok: false,
+              error: "دسترسی غیرمجاز"
+            },
+            401
+          );
+        }
+
         return json(await getSuppliers(env));
       }
 
+      if (
+        path === "/api/admin/suppliers" &&
+        method === "POST"
+      ) {
+        if (!isAdmin(request, env)) {
+          return json(
+            {
+              ok: false,
+              error: "دسترسی غیرمجاز"
+            },
+            401
+          );
+        }
+
+        return await createSupplier(request, env);
+      }
+
       /* =========================
-         ORDERS API
+         ADMIN PRODUCTS
+      ========================= */
+
+      if (
+        path === "/api/admin/products" &&
+        method === "POST"
+      ) {
+        if (!isAdmin(request, env)) {
+          return json(
+            {
+              ok: false,
+              error: "دسترسی غیرمجاز"
+            },
+            401
+          );
+        }
+
+        return await createProduct(request, env);
+      }
+
+      if (
+        path === "/api/admin/products" &&
+        method === "PUT"
+      ) {
+        if (!isAdmin(request, env)) {
+          return json(
+            {
+              ok: false,
+              error: "دسترسی غیرمجاز"
+            },
+            401
+          );
+        }
+
+        return await updateProduct(request, env);
+      }
+
+      /* =========================
+         ADMIN ORDERS
+      ========================= */
+
+      if (
+        path === "/api/orders" &&
+        method === "GET"
+      ) {
+        if (!isAdmin(request, env)) {
+          return json(
+            {
+              ok: false,
+              error: "دسترسی غیرمجاز"
+            },
+            401
+          );
+        }
+
+        return json(await getOrders(env));
+      }
+
+      if (
+        path === "/api/admin/orders/status" &&
+        method === "PUT"
+      ) {
+        if (!isAdmin(request, env)) {
+          return json(
+            {
+              ok: false,
+              error: "دسترسی غیرمجاز"
+            },
+            401
+          );
+        }
+
+        return await updateOrderStatus(
+          request,
+          env
+        );
+      }
+
+      /* =========================
+         CREATE ORDER
       ========================= */
 
       if (
         path === "/api/orders" &&
         method === "POST"
       ) {
-        return await createOrder(request, env);
-      }
-
-      if (
-        path === "/api/orders" &&
-        method === "GET"
-      ) {
-        return json(await getOrders(env));
+        return await createOrder(
+          request,
+          env
+        );
       }
 
       /* =========================
@@ -85,7 +191,12 @@ export default {
       ========================= */
 
       if (path === "/admin") {
-        return html(await adminPage(env));
+        return html(
+          await adminPage(
+            request,
+            env
+          )
+        );
       }
 
       /* =========================
@@ -98,7 +209,10 @@ export default {
 
         if (productId) {
           const result =
-            await getProduct(env, productId);
+            await getProduct(
+              env,
+              productId
+            );
 
           if (!result.ok) {
             return html(
@@ -134,7 +248,9 @@ export default {
           return html(
             layout(
               result.product.name,
-              productDetailPage(result.product)
+              productDetailPage(
+                result.product
+              )
             )
           );
         }
@@ -193,10 +309,6 @@ async function initDB(env) {
     );
   }
 
-  /* =========================
-     CATEGORIES
-  ========================= */
-
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -205,10 +317,6 @@ async function initDB(env) {
     )
   `).run();
 
-  /* =========================
-     SUPPLIERS
-  ========================= */
-
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS suppliers (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -216,15 +324,13 @@ async function initDB(env) {
       phone TEXT DEFAULT '',
       email TEXT DEFAULT '',
       address TEXT DEFAULT '',
+      website TEXT DEFAULT '',
+      shipping_method TEXT DEFAULT '',
       direct_shipping INTEGER DEFAULT 0,
       active INTEGER DEFAULT 1,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `).run();
-
-  /* =========================
-     PRODUCTS
-  ========================= */
 
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS products (
@@ -240,89 +346,7 @@ async function initDB(env) {
     )
   `).run();
 
-  /* =========================
-     PRODUCTS MIGRATION
-  ========================= */
-
-  const productColumns =
-    await env.DB
-      .prepare(
-        `PRAGMA table_info(products)`
-      )
-      .all();
-
-  const productNames =
-    new Set(
-      (productColumns.results || [])
-        .map(row => row.name)
-    );
-
-  if (!productNames.has("category")) {
-    await env.DB
-      .prepare(
-        `ALTER TABLE products
-         ADD COLUMN category TEXT DEFAULT ''`
-      )
-      .run();
-  }
-
-  if (!productNames.has("stock")) {
-    await env.DB
-      .prepare(
-        `ALTER TABLE products
-         ADD COLUMN stock INTEGER DEFAULT 0`
-      )
-      .run();
-  }
-
-  if (!productNames.has("image")) {
-    await env.DB
-      .prepare(
-        `ALTER TABLE products
-         ADD COLUMN image TEXT DEFAULT ''`
-      )
-      .run();
-  }
-
-  if (!productNames.has("active")) {
-    await env.DB
-      .prepare(
-        `ALTER TABLE products
-         ADD COLUMN active INTEGER DEFAULT 1`
-      )
-      .run();
-  }
-
-  if (!productNames.has("supplier_id")) {
-    await env.DB
-      .prepare(
-        `ALTER TABLE products
-         ADD COLUMN supplier_id INTEGER DEFAULT NULL`
-      )
-      .run();
-  }
-
-  if (!productNames.has("supplier_price")) {
-    await env.DB
-      .prepare(
-        `ALTER TABLE products
-         ADD COLUMN supplier_price INTEGER DEFAULT 0`
-      )
-      .run();
-  }
-
-  if (!productNames.has("commission")) {
-    await env.DB
-      .prepare(
-        `ALTER TABLE products
-         ADD COLUMN commission INTEGER DEFAULT 0`
-      )
-      .run();
-  }
-
-  /* =========================
-     ORDERS
-  ========================= */
+  await ensureProductColumns(env);
 
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS orders (
@@ -337,53 +361,7 @@ async function initDB(env) {
     )
   `).run();
 
-  /* =========================
-     ORDER MIGRATION
-  ========================= */
-
-  const orderColumns =
-    await env.DB
-      .prepare(
-        `PRAGMA table_info(orders)`
-      )
-      .all();
-
-  const orderNames =
-    new Set(
-      (orderColumns.results || [])
-        .map(row => row.name)
-    );
-
-  if (!orderNames.has("supplier_id")) {
-    await env.DB
-      .prepare(
-        `ALTER TABLE orders
-         ADD COLUMN supplier_id INTEGER DEFAULT NULL`
-      )
-      .run();
-  }
-
-  if (!orderNames.has("supplier_status")) {
-    await env.DB
-      .prepare(
-        `ALTER TABLE orders
-         ADD COLUMN supplier_status TEXT DEFAULT 'جدید'`
-      )
-      .run();
-  }
-
-  if (!orderNames.has("shipping_status")) {
-    await env.DB
-      .prepare(
-        `ALTER TABLE orders
-         ADD COLUMN shipping_status TEXT DEFAULT 'در انتظار ارسال'`
-      )
-      .run();
-  }
-
-  /* =========================
-     ORDER ITEMS
-  ========================= */
+  await ensureOrderColumns(env);
 
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS order_items (
@@ -398,53 +376,7 @@ async function initDB(env) {
     )
   `).run();
 
-  /* =========================
-     ORDER ITEMS MIGRATION
-  ========================= */
-
-  const orderItemColumns =
-    await env.DB
-      .prepare(
-        `PRAGMA table_info(order_items)`
-      )
-      .all();
-
-  const orderItemNames =
-    new Set(
-      (orderItemColumns.results || [])
-        .map(row => row.name)
-    );
-
-  if (!orderItemNames.has("supplier_id")) {
-    await env.DB
-      .prepare(
-        `ALTER TABLE order_items
-         ADD COLUMN supplier_id INTEGER DEFAULT NULL`
-      )
-      .run();
-  }
-
-  if (!orderItemNames.has("supplier_price")) {
-    await env.DB
-      .prepare(
-        `ALTER TABLE order_items
-         ADD COLUMN supplier_price INTEGER DEFAULT 0`
-      )
-      .run();
-  }
-
-  if (!orderItemNames.has("commission")) {
-    await env.DB
-      .prepare(
-        `ALTER TABLE order_items
-         ADD COLUMN commission INTEGER DEFAULT 0`
-      )
-      .run();
-  }
-
-  /* =========================
-     SUPPLIER ORDERS
-  ========================= */
+  await ensureOrderItemColumns(env);
 
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS supplier_orders (
@@ -460,10 +392,6 @@ async function initDB(env) {
     )
   `).run();
 
-  /* =========================
-     REVIEWS
-  ========================= */
-
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS reviews (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -475,86 +403,223 @@ async function initDB(env) {
     )
   `).run();
 
-  /* =========================
-     SEED
-  ========================= */
-
-  await seedProducts(env);
+  await seedCategories(env);
 }
 
 
 /* =========================================================
-   SEED PRODUCTS
+   PRODUCT MIGRATION
 ========================================================= */
 
-async function seedProducts(env) {
+async function ensureProductColumns(env) {
   const result =
     await env.DB
       .prepare(
-        `SELECT COUNT(*) AS count
-         FROM products`
+        `PRAGMA table_info(products)`
       )
-      .first();
+      .all();
 
-  if (
-    Number(result?.count || 0) > 0
-  ) {
-    return;
-  }
+  const names =
+    new Set(
+      (result.results || [])
+        .map(row => row.name)
+    );
 
-  /*
-   * این محصولات فقط نمونه اولیه هستند.
-   * تا زمانی که فروشنده واقعی ثبت نشده
-   * خرید واقعی فعال نمی‌شود.
-   */
-
-  const products = [
-    {
-      name: "محصول نمونه دیجی‌ماریکسو ۱",
-      description:
-        "محصول نمونه برای آماده‌سازی فروشگاه.",
-      price: 0,
-      category: "عمومی",
-      stock: 0
-    },
-    {
-      name: "محصول نمونه دیجی‌ماریکسو ۲",
-      description:
-        "محصول نمونه برای آماده‌سازی فروشگاه.",
-      price: 0,
-      category: "عمومی",
-      stock: 0
-    }
+  const columns = [
+    [
+      "category",
+      `ALTER TABLE products
+       ADD COLUMN category TEXT DEFAULT ''`
+    ],
+    [
+      "stock",
+      `ALTER TABLE products
+       ADD COLUMN stock INTEGER DEFAULT 0`
+    ],
+    [
+      "image",
+      `ALTER TABLE products
+       ADD COLUMN image TEXT DEFAULT ''`
+    ],
+    [
+      "active",
+      `ALTER TABLE products
+       ADD COLUMN active INTEGER DEFAULT 1`
+    ],
+    [
+      "supplier_id",
+      `ALTER TABLE products
+       ADD COLUMN supplier_id INTEGER DEFAULT NULL`
+    ],
+    [
+      "supplier_price",
+      `ALTER TABLE products
+       ADD COLUMN supplier_price INTEGER DEFAULT 0`
+    ],
+    [
+      "commission",
+      `ALTER TABLE products
+       ADD COLUMN commission INTEGER DEFAULT 0`
+    ],
+    [
+      "supplier_sku",
+      `ALTER TABLE products
+       ADD COLUMN supplier_sku TEXT DEFAULT ''`
+    ],
+    [
+      "delivery_days",
+      `ALTER TABLE products
+       ADD COLUMN delivery_days TEXT DEFAULT ''`
+    ]
   ];
 
-  for (const product of products) {
+  for (const [name, sql] of columns) {
+    if (!names.has(name)) {
+      await env.DB.prepare(sql).run();
+    }
+  }
+}
+
+
+/* =========================================================
+   ORDER MIGRATION
+========================================================= */
+
+async function ensureOrderColumns(env) {
+  const result =
+    await env.DB
+      .prepare(
+        `PRAGMA table_info(orders)`
+      )
+      .all();
+
+  const names =
+    new Set(
+      (result.results || [])
+        .map(row => row.name)
+    );
+
+  const columns = [
+    [
+      "supplier_id",
+      `ALTER TABLE orders
+       ADD COLUMN supplier_id INTEGER DEFAULT NULL`
+    ],
+    [
+      "supplier_status",
+      `ALTER TABLE orders
+       ADD COLUMN supplier_status TEXT DEFAULT 'جدید'`
+    ],
+    [
+      "shipping_status",
+      `ALTER TABLE orders
+       ADD COLUMN shipping_status TEXT DEFAULT 'در انتظار ارسال'`
+    ]
+  ];
+
+  for (const [name, sql] of columns) {
+    if (!names.has(name)) {
+      await env.DB.prepare(sql).run();
+    }
+  }
+}
+
+
+/* =========================================================
+   ORDER ITEM MIGRATION
+========================================================= */
+
+async function ensureOrderItemColumns(env) {
+  const result =
+    await env.DB
+      .prepare(
+        `PRAGMA table_info(order_items)`
+      )
+      .all();
+
+  const names =
+    new Set(
+      (result.results || [])
+        .map(row => row.name)
+    );
+
+  const columns = [
+    [
+      "supplier_id",
+      `ALTER TABLE order_items
+       ADD COLUMN supplier_id INTEGER DEFAULT NULL`
+    ],
+    [
+      "supplier_price",
+      `ALTER TABLE order_items
+       ADD COLUMN supplier_price INTEGER DEFAULT 0`
+    ],
+    [
+      "commission",
+      `ALTER TABLE order_items
+       ADD COLUMN commission INTEGER DEFAULT 0`
+    ]
+  ];
+
+  for (const [name, sql] of columns) {
+    if (!names.has(name)) {
+      await env.DB.prepare(sql).run();
+    }
+  }
+}
+
+
+/* =========================================================
+   CATEGORY SEED
+========================================================= */
+
+async function seedCategories(env) {
+  const categories = [
+    "لوازم جانبی موبایل",
+    "کابل و شارژر",
+    "لوازم خودرو",
+    "لوازم کامپیوتر",
+    "لوازم دیجیتال",
+    "خانه و کاربردی",
+    "سایر"
+  ];
+
+  for (const category of categories) {
     await env.DB
       .prepare(`
-        INSERT INTO products
-        (
-          name,
-          description,
-          price,
-          image,
-          category,
-          stock,
-          active,
-          supplier_id,
-          supplier_price,
-          commission
-        )
-        VALUES (?, ?, ?, ?, ?, ?, 1, NULL, 0, 0)
+        INSERT OR IGNORE INTO categories
+        (name)
+        VALUES (?)
       `)
-      .bind(
-        product.name,
-        product.description,
-        product.price,
-        "",
-        product.category,
-        product.stock
-      )
+      .bind(category)
       .run();
   }
+}
+
+
+/* =========================================================
+   ADMIN AUTH
+========================================================= */
+
+function isAdmin(
+  request,
+  env
+) {
+  const configured =
+    String(
+      env.ADMIN_PASSWORD || ""
+    ).trim();
+
+  if (!configured) {
+    return false;
+  }
+
+  const supplied =
+    request.headers.get(
+      "X-Admin-Password"
+    ) || "";
+
+  return supplied === configured;
 }
 
 
@@ -577,10 +642,13 @@ async function getProducts(env) {
         p.supplier_id,
         p.supplier_price,
         p.commission,
+        p.supplier_sku,
+        p.delivery_days,
         p.created_at,
 
         s.name AS supplier_name,
-        s.direct_shipping AS supplier_direct_shipping
+        s.direct_shipping
+          AS supplier_direct_shipping
 
       FROM products p
 
@@ -597,7 +665,9 @@ async function getProducts(env) {
       .map(product => ({
         ...product,
         price:
-          normalizePrice(product.price),
+          normalizePrice(
+            product.price
+          ),
         supplier_price:
           normalizePrice(
             product.supplier_price
@@ -619,7 +689,10 @@ async function getProducts(env) {
    SINGLE PRODUCT
 ========================================================= */
 
-async function getProduct(env, id) {
+async function getProduct(
+  env,
+  id
+) {
   const product =
     await env.DB
       .prepare(`
@@ -635,6 +708,8 @@ async function getProduct(env, id) {
           p.supplier_id,
           p.supplier_price,
           p.commission,
+          p.supplier_sku,
+          p.delivery_days,
           p.created_at,
 
           s.name AS supplier_name,
@@ -663,7 +738,9 @@ async function getProduct(env, id) {
   }
 
   product.price =
-    normalizePrice(product.price);
+    normalizePrice(
+      product.price
+    );
 
   product.supplier_price =
     normalizePrice(
@@ -696,6 +773,8 @@ async function getSuppliers(env) {
           phone,
           email,
           address,
+          website,
+          shipping_method,
           direct_shipping,
           active,
           created_at
@@ -709,6 +788,547 @@ async function getSuppliers(env) {
     suppliers:
       result.results || []
   };
+}
+
+
+/* =========================================================
+   CREATE SUPPLIER
+========================================================= */
+
+async function createSupplier(
+  request,
+  env
+) {
+  let data;
+
+  try {
+    data =
+      await request.json();
+  } catch {
+    return json(
+      {
+        ok: false,
+        error: "اطلاعات نامعتبر است"
+      },
+      400
+    );
+  }
+
+  const name =
+    String(
+      data.name || ""
+    ).trim();
+
+  const phone =
+    String(
+      data.phone || ""
+    ).trim();
+
+  const email =
+    String(
+      data.email || ""
+    ).trim();
+
+  const address =
+    String(
+      data.address || ""
+    ).trim();
+
+  const website =
+    String(
+      data.website || ""
+    ).trim();
+
+  const shippingMethod =
+    String(
+      data.shipping_method || ""
+    ).trim();
+
+  const directShipping =
+    Number(
+      data.direct_shipping
+    ) === 1
+      ? 1
+      : 0;
+
+  if (!name) {
+    return json(
+      {
+        ok: false,
+        error: "نام فروشنده الزامی است"
+      },
+      400
+    );
+  }
+
+  const result =
+    await env.DB
+      .prepare(`
+        INSERT INTO suppliers
+        (
+          name,
+          phone,
+          email,
+          address,
+          website,
+          shipping_method,
+          direct_shipping,
+          active
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+      `)
+      .bind(
+        name,
+        phone,
+        email,
+        address,
+        website,
+        shippingMethod,
+        directShipping
+      )
+      .run();
+
+  return json({
+    ok: true,
+    supplier_id:
+      result.meta.last_row_id
+  });
+}
+
+
+/* =========================================================
+   CREATE PRODUCT
+========================================================= */
+
+async function createProduct(
+  request,
+  env
+) {
+  let data;
+
+  try {
+    data =
+      await request.json();
+  } catch {
+    return json(
+      {
+        ok: false,
+        error: "اطلاعات محصول نامعتبر است"
+      },
+      400
+    );
+  }
+
+  const name =
+    String(
+      data.name || ""
+    ).trim();
+
+  const description =
+    String(
+      data.description || ""
+    ).trim();
+
+  const category =
+    String(
+      data.category || "سایر"
+    ).trim();
+
+  const image =
+    String(
+      data.image || ""
+    ).trim();
+
+  const supplierSku =
+    String(
+      data.supplier_sku || ""
+    ).trim();
+
+  const deliveryDays =
+    String(
+      data.delivery_days || ""
+    ).trim();
+
+  const price =
+    normalizePrice(
+      data.price
+    );
+
+  const supplierPrice =
+    normalizePrice(
+      data.supplier_price
+    );
+
+  const commission =
+    normalizePrice(
+      data.commission
+    );
+
+  const stock =
+    Math.max(
+      0,
+      Math.floor(
+        Number(
+          data.stock || 0
+        )
+      )
+    );
+
+  const supplierId =
+    data.supplier_id
+      ? Number(data.supplier_id)
+      : null;
+
+  if (!name) {
+    return json(
+      {
+        ok: false,
+        error: "نام محصول الزامی است"
+      },
+      400
+    );
+  }
+
+  if (price <= 0) {
+    return json(
+      {
+        ok: false,
+        error:
+          "قیمت فروش باید بیشتر از صفر باشد"
+      },
+      400
+    );
+  }
+
+  if (
+    supplierId &&
+    !Number.isFinite(supplierId)
+  ) {
+    return json(
+      {
+        ok: false,
+        error:
+          "شناسه فروشنده نامعتبر است"
+      },
+      400
+    );
+  }
+
+  if (supplierId) {
+    const supplier =
+      await env.DB
+        .prepare(`
+          SELECT id
+          FROM suppliers
+          WHERE id = ?
+          AND active = 1
+          LIMIT 1
+        `)
+        .bind(supplierId)
+        .first();
+
+    if (!supplier) {
+      return json(
+        {
+          ok: false,
+          error:
+            "فروشنده فعال پیدا نشد"
+        },
+        400
+      );
+    }
+  }
+
+  const result =
+    await env.DB
+      .prepare(`
+        INSERT INTO products
+        (
+          name,
+          description,
+          price,
+          image,
+          category,
+          stock,
+          active,
+          supplier_id,
+          supplier_price,
+          commission,
+          supplier_sku,
+          delivery_days
+        )
+        VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)
+      `)
+      .bind(
+        name,
+        description,
+        price,
+        image,
+        category,
+        stock,
+        supplierId,
+        supplierPrice,
+        commission,
+        supplierSku,
+        deliveryDays
+      )
+      .run();
+
+  return json({
+    ok: true,
+    product_id:
+      result.meta.last_row_id
+  });
+}
+
+
+/* =========================================================
+   UPDATE PRODUCT
+========================================================= */
+
+async function updateProduct(
+  request,
+  env
+) {
+  let data;
+
+  try {
+    data =
+      await request.json();
+  } catch {
+    return json(
+      {
+        ok: false,
+        error: "اطلاعات نامعتبر است"
+      },
+      400
+    );
+  }
+
+  const id =
+    Number(data.id);
+
+  if (!Number.isFinite(id)) {
+    return json(
+      {
+        ok: false,
+        error: "شناسه محصول نامعتبر است"
+      },
+      400
+    );
+  }
+
+  const current =
+    await env.DB
+      .prepare(`
+        SELECT *
+        FROM products
+        WHERE id = ?
+        LIMIT 1
+      `)
+      .bind(id)
+      .first();
+
+  if (!current) {
+    return json(
+      {
+        ok: false,
+        error: "محصول پیدا نشد"
+      },
+      404
+    );
+  }
+
+  const name =
+    String(
+      data.name ??
+      current.name ??
+      ""
+    ).trim();
+
+  const description =
+    String(
+      data.description ??
+      current.description ??
+      ""
+    ).trim();
+
+  const category =
+    String(
+      data.category ??
+      current.category ??
+      "سایر"
+    ).trim();
+
+  const image =
+    String(
+      data.image ??
+      current.image ??
+      ""
+    ).trim();
+
+  const supplierSku =
+    String(
+      data.supplier_sku ??
+      current.supplier_sku ??
+      ""
+    ).trim();
+
+  const deliveryDays =
+    String(
+      data.delivery_days ??
+      current.delivery_days ??
+      ""
+    ).trim();
+
+  const price =
+    normalizePrice(
+      data.price ??
+      current.price
+    );
+
+  const supplierPrice =
+    normalizePrice(
+      data.supplier_price ??
+      current.supplier_price
+    );
+
+  const commission =
+    normalizePrice(
+      data.commission ??
+      current.commission
+    );
+
+  const stock =
+    Math.max(
+      0,
+      Math.floor(
+        Number(
+          data.stock ??
+          current.stock ??
+          0
+        )
+      )
+    );
+
+  let supplierId =
+    data.supplier_id !== undefined
+      ? (
+          data.supplier_id === null ||
+          data.supplier_id === ""
+            ? null
+            : Number(
+                data.supplier_id
+              )
+        )
+      : (
+          current.supplier_id
+            ? Number(
+                current.supplier_id
+              )
+            : null
+        );
+
+  const active =
+    data.active !== undefined
+      ? (
+          Number(data.active) === 1
+            ? 1
+            : 0
+        )
+      : Number(
+          current.active || 0
+        );
+
+  if (!name) {
+    return json(
+      {
+        ok: false,
+        error: "نام محصول الزامی است"
+      },
+      400
+    );
+  }
+
+  if (
+    supplierId !== null &&
+    !Number.isFinite(
+      supplierId
+    )
+  ) {
+    return json(
+      {
+        ok: false,
+        error:
+          "شناسه فروشنده نامعتبر است"
+      },
+      400
+    );
+  }
+
+  if (supplierId !== null) {
+    const supplier =
+      await env.DB
+        .prepare(`
+          SELECT id
+          FROM suppliers
+          WHERE id = ?
+          LIMIT 1
+        `)
+        .bind(supplierId)
+        .first();
+
+    if (!supplier) {
+      return json(
+        {
+          ok: false,
+          error:
+            "فروشنده پیدا نشد"
+        },
+        400
+      );
+    }
+  }
+
+  await env.DB
+    .prepare(`
+      UPDATE products
+      SET
+        name = ?,
+        description = ?,
+        price = ?,
+        image = ?,
+        category = ?,
+        stock = ?,
+        active = ?,
+        supplier_id = ?,
+        supplier_price = ?,
+        commission = ?,
+        supplier_sku = ?,
+        delivery_days = ?
+      WHERE id = ?
+    `)
+    .bind(
+      name,
+      description,
+      price,
+      image,
+      category,
+      stock,
+      active,
+      supplierId,
+      supplierPrice,
+      commission,
+      supplierSku,
+      deliveryDays,
+      id
+    )
+    .run();
+
+  return json({
+    ok: true,
+    product_id: id
+  });
 }
 
 
@@ -775,7 +1395,8 @@ async function createOrder(
     return json(
       {
         ok: false,
-        error: "شماره تماس الزامی است"
+        error:
+          "شماره تماس الزامی است"
       },
       400
     );
@@ -806,9 +1427,6 @@ async function createOrder(
 
   const orderItems = [];
 
-  /*
-   * فروشنده‌ها را برای تفکیک سفارش نگه می‌داریم.
-   */
   const supplierGroups =
     new Map();
 
@@ -820,8 +1438,7 @@ async function createOrder(
       );
 
     const quantity =
-      Math.max(
-        1,
+      Math.floor(
         Number(
           item.quantity || 1
         )
@@ -874,9 +1491,6 @@ async function createOrder(
             s.name
               AS supplier_name,
 
-            s.phone
-              AS supplier_phone,
-
             s.direct_shipping
               AS supplier_direct_shipping,
 
@@ -923,14 +1537,7 @@ async function createOrder(
       );
     }
 
-    /*
-     * بدون فروشنده واقعی
-     * و بدون تأیید ارسال مستقیم
-     * سفارش اجازه ثبت ندارد.
-     */
-    if (
-      !product.supplier_id
-    ) {
+    if (!product.supplier_id) {
       return json(
         {
           ok: false,
@@ -986,10 +1593,6 @@ async function createOrder(
         product.commission
       );
 
-    /*
-     * اگر قیمت فروش صفر باشد،
-     * سفارش واقعی نباید ثبت شود.
-     */
     if (price <= 0) {
       return json(
         {
@@ -1020,9 +1623,6 @@ async function createOrder(
       orderItem
     );
 
-    /*
-     * تفکیک محصولات بر اساس فروشنده
-     */
     if (
       !supplierGroups.has(
         orderItem.supplierId
@@ -1045,6 +1645,13 @@ async function createOrder(
      CREATE MAIN ORDER
   ========================= */
 
+  const firstSupplier =
+    supplierGroups.size === 1
+      ? Array.from(
+          supplierGroups.keys()
+        )[0]
+      : null;
+
   const order =
     await env.DB
       .prepare(`
@@ -1056,10 +1663,11 @@ async function createOrder(
           address,
           total,
           status,
+          supplier_id,
           supplier_status,
           shipping_status
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
       .bind(
         customerName,
@@ -1068,6 +1676,7 @@ async function createOrder(
         address,
         total,
         "در حال بررسی",
+        firstSupplier,
         "در انتظار فروشنده",
         "در انتظار ارسال"
       )
@@ -1080,76 +1689,82 @@ async function createOrder(
      ORDER ITEMS
   ========================= */
 
+  const statements = [];
+
   for (
     const item of orderItems
   ) {
-    await env.DB
-      .prepare(`
-        INSERT INTO order_items
-        (
-          order_id,
-          product_id,
-          supplier_id,
-          quantity,
-          price,
-          supplier_price,
-          commission
+    statements.push(
+      env.DB
+        .prepare(`
+          INSERT INTO order_items
+          (
+            order_id,
+            product_id,
+            supplier_id,
+            quantity,
+            price,
+            supplier_price,
+            commission
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `)
+        .bind(
+          orderId,
+          item.productId,
+          item.supplierId,
+          item.quantity,
+          item.price,
+          item.supplierPrice,
+          item.commission
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `)
-      .bind(
-        orderId,
-        item.productId,
-        item.supplierId,
-        item.quantity,
-        item.price,
-        item.supplierPrice,
-        item.commission
-      )
-      .run();
+    );
 
-    await env.DB
-      .prepare(`
-        UPDATE products
-        SET stock = stock - ?
-        WHERE id = ?
-      `)
-      .bind(
-        item.quantity,
-        item.productId
-      )
-      .run();
+    statements.push(
+      env.DB
+        .prepare(`
+          UPDATE products
+          SET stock = stock - ?
+          WHERE id = ?
+          AND stock >= ?
+        `)
+        .bind(
+          item.quantity,
+          item.productId,
+          item.quantity
+        )
+    );
   }
 
-  /* =========================
-     SUPPLIER ORDERS
-  ========================= */
-
   for (
-    const [
-      supplierId,
-      supplierItems
-    ]
-    of supplierGroups
+    const supplierId
+    of supplierGroups.keys()
   ) {
-    await env.DB
-      .prepare(`
-        INSERT INTO supplier_orders
-        (
-          order_id,
-          supplier_id,
-          status,
-          shipping_status
+    statements.push(
+      env.DB
+        .prepare(`
+          INSERT INTO supplier_orders
+          (
+            order_id,
+            supplier_id,
+            status,
+            shipping_status
+          )
+          VALUES (?, ?, ?, ?)
+        `)
+        .bind(
+          orderId,
+          supplierId,
+          "جدید",
+          "در انتظار ارسال"
         )
-        VALUES (?, ?, ?, ?)
-      `)
-      .bind(
-        orderId,
-        supplierId,
-        "جدید",
-        "در انتظار ارسال"
-      )
-      .run();
+    );
+  }
+
+  if (statements.length) {
+    await env.DB.batch(
+      statements
+    );
   }
 
   return json({
@@ -1157,9 +1772,9 @@ async function createOrder(
     order_id: orderId,
     total,
     suppliers:
-      Array.from(
-        supplierGroups.keys()
-      ).length
+      supplierGroups.size,
+    status:
+      "در حال بررسی"
   });
 }
 
@@ -1173,18 +1788,21 @@ async function getOrders(env) {
     await env.DB
       .prepare(`
         SELECT
-          id,
-          customer_name,
-          customer_email,
-          customer_phone,
-          address,
-          total,
-          status,
-          supplier_status,
-          shipping_status,
-          created_at
-        FROM orders
-        ORDER BY id DESC
+          o.id,
+          o.customer_name,
+          o.customer_email,
+          o.customer_phone,
+          o.address,
+          o.total,
+          o.status,
+          o.supplier_status,
+          o.shipping_status,
+          o.created_at,
+          s.name AS supplier_name
+        FROM orders o
+        LEFT JOIN suppliers s
+          ON s.id = o.supplier_id
+        ORDER BY o.id DESC
       `)
       .all();
 
@@ -1193,6 +1811,126 @@ async function getOrders(env) {
     orders:
       result.results || []
   };
+}
+
+
+/* =========================================================
+   UPDATE ORDER STATUS
+========================================================= */
+
+async function updateOrderStatus(
+  request,
+  env
+) {
+  let data;
+
+  try {
+    data =
+      await request.json();
+  } catch {
+    return json(
+      {
+        ok: false,
+        error:
+          "اطلاعات نامعتبر است"
+      },
+      400
+    );
+  }
+
+  const orderId =
+    Number(data.order_id);
+
+  const status =
+    String(
+      data.status || ""
+    ).trim();
+
+  const supplierStatus =
+    String(
+      data.supplier_status || ""
+    ).trim();
+
+  const shippingStatus =
+    String(
+      data.shipping_status || ""
+    ).trim();
+
+  if (
+    !Number.isFinite(
+      orderId
+    )
+  ) {
+    return json(
+      {
+        ok: false,
+        error:
+          "شناسه سفارش نامعتبر است"
+      },
+      400
+    );
+  }
+
+  const order =
+    await env.DB
+      .prepare(`
+        SELECT id
+        FROM orders
+        WHERE id = ?
+        LIMIT 1
+      `)
+      .bind(orderId)
+      .first();
+
+  if (!order) {
+    return json(
+      {
+        ok: false,
+        error:
+          "سفارش پیدا نشد"
+      },
+      404
+    );
+  }
+
+  await env.DB
+    .prepare(`
+      UPDATE orders
+      SET
+        status =
+          CASE
+            WHEN ? = '' THEN status
+            ELSE ?
+          END,
+
+        supplier_status =
+          CASE
+            WHEN ? = '' THEN supplier_status
+            ELSE ?
+          END,
+
+        shipping_status =
+          CASE
+            WHEN ? = '' THEN shipping_status
+            ELSE ?
+          END
+      WHERE id = ?
+    `)
+    .bind(
+      status,
+      status,
+      supplierStatus,
+      supplierStatus,
+      shippingStatus,
+      shippingStatus,
+      orderId
+    )
+    .run();
+
+  return json({
+    ok: true,
+    order_id: orderId
+  });
 }
 
 
@@ -1561,6 +2299,25 @@ function productDetailPage(
           }
 
         </div>
+
+        ${
+          product.delivery_days
+            ? `
+              <p
+                style="
+                  color:#64748b;
+                  font-size:13px;
+                  margin:8px 0 15px;
+                "
+              >
+                زمان ارسال تقریبی:
+                ${escapeHTML(
+                  product.delivery_days
+                )}
+              </p>
+            `
+            : ""
+        }
 
         ${
           canBuy
@@ -1961,36 +2718,60 @@ function cartPage() {
 
 
 /* =========================================================
-   ADMIN
+   ADMIN PAGE
 ========================================================= */
 
-async function adminPage(env) {
+async function adminPage(
+  request,
+  env
+) {
   const products =
     await env.DB
       .prepare(`
-        SELECT
-          COUNT(*) AS count
+        SELECT COUNT(*) AS count
         FROM products
+      `)
+      .first();
+
+  const activeProducts =
+    await env.DB
+      .prepare(`
+        SELECT COUNT(*) AS count
+        FROM products
+        WHERE active = 1
       `)
       .first();
 
   const suppliers =
     await env.DB
       .prepare(`
-        SELECT
-          COUNT(*) AS count
+        SELECT COUNT(*) AS count
         FROM suppliers
+      `)
+      .first();
+
+  const activeSuppliers =
+    await env.DB
+      .prepare(`
+        SELECT COUNT(*) AS count
+        FROM suppliers
+        WHERE active = 1
       `)
       .first();
 
   const orders =
     await env.DB
       .prepare(`
-        SELECT
-          COUNT(*) AS count
+        SELECT COUNT(*) AS count
         FROM orders
       `)
       .first();
+
+  const authorized =
+    isAdmin(
+      request,
+      env
+    );
 
   return layout(
     "مدیریت",
@@ -2031,6 +2812,21 @@ async function adminPage(env) {
       <div class="admin-card">
 
         <strong>
+          محصولات فعال
+        </strong>
+
+        <span>
+          ${formatNumber(
+            activeProducts?.count || 0
+          )}
+          محصول فعال
+        </span>
+
+      </div>
+
+      <div class="admin-card">
+
+        <strong>
           فروشندگان
         </strong>
 
@@ -2039,6 +2835,21 @@ async function adminPage(env) {
             suppliers?.count || 0
           )}
           فروشنده ثبت شده
+        </span>
+
+      </div>
+
+      <div class="admin-card">
+
+        <strong>
+          فروشندگان فعال
+        </strong>
+
+        <span>
+          ${formatNumber(
+            activeSuppliers?.count || 0
+          )}
+          فروشنده فعال
         </span>
 
       </div>
@@ -2061,44 +2872,263 @@ async function adminPage(env) {
       <div class="admin-card">
 
         <strong>
-          ارسال
-        </strong>
-
-        <span>
-          ارسال کالا توسط فروشنده انجام می‌شود.
-        </span>
-
-      </div>
-
-      <div class="admin-card">
-
-        <strong>
           مدل فروش
         </strong>
 
         <span>
-          دیجی‌ماریکسو کالا را انبار یا ارسال نمی‌کند.
-        </span>
-
-      </div>
-
-      <div class="admin-card">
-
-        <strong>
-          مدیر
-        </strong>
-
-        <span>
-          ${escapeHTML(
-            DEFAULT_ADMIN_USERNAME
-          )}
+          ارسال کالا توسط تأمین‌کننده انجام می‌شود.
         </span>
 
       </div>
 
     </section>
+
+    ${
+      authorized
+        ? adminManagementHTML()
+        : `
+          <section class="cart-box">
+
+            <h2>
+              ورود مدیریت
+            </h2>
+
+            <p
+              style="
+                color:#64748b;
+                font-size:14px;
+              "
+            >
+              برای مدیریت محصولات و فروشندگان،
+              رمز مدیریت Cloudflare را وارد کنید.
+            </p>
+
+            <input
+              id="admin-password"
+              type="password"
+              placeholder="رمز مدیریت"
+            >
+
+            <button
+              class="btn primary"
+              style="margin-top:12px;"
+              onclick="adminLogin()"
+            >
+              ورود به مدیریت
+            </button>
+
+          </section>
+        `
+    }
     `
   );
+}
+
+
+/* =========================================================
+   ADMIN MANAGEMENT HTML
+========================================================= */
+
+function adminManagementHTML() {
+  return `
+  <section
+    class="cart-box"
+    style="margin-top:20px;"
+  >
+
+    <h2>
+      ثبت فروشنده
+    </h2>
+
+    <div
+      style="
+        display:grid;
+        gap:10px;
+        margin-top:15px;
+      "
+    >
+
+      <input
+        id="supplier-name"
+        placeholder="نام فروشنده / تأمین‌کننده"
+      >
+
+      <input
+        id="supplier-phone"
+        placeholder="شماره تماس"
+      >
+
+      <input
+        id="supplier-email"
+        placeholder="ایمیل"
+      >
+
+      <input
+        id="supplier-website"
+        placeholder="وب‌سایت"
+      >
+
+      <input
+        id="supplier-address"
+        placeholder="آدرس"
+      >
+
+      <input
+        id="supplier-shipping"
+        placeholder="روش ارسال"
+      >
+
+      <label
+        style="
+          display:flex;
+          gap:8px;
+          align-items:center;
+        "
+      >
+        <input
+          id="supplier-direct"
+          type="checkbox"
+          style="width:auto;"
+        >
+        ارسال مستقیم به مشتری را تأیید کرده است
+      </label>
+
+      <button
+        class="btn orange"
+        onclick="createSupplierAdmin()"
+      >
+        ثبت فروشنده
+      </button>
+
+    </div>
+
+  </section>
+
+
+  <section
+    class="cart-box"
+    style="margin-top:20px;"
+  >
+
+    <h2>
+      ثبت محصول
+    </h2>
+
+    <div
+      style="
+        display:grid;
+        gap:10px;
+        margin-top:15px;
+      "
+    >
+
+      <input
+        id="product-name"
+        placeholder="نام محصول"
+      >
+
+      <input
+        id="product-category"
+        placeholder="دسته‌بندی"
+      >
+
+      <input
+        id="product-description"
+        placeholder="توضیحات محصول"
+      >
+
+      <input
+        id="product-image"
+        placeholder="لینک تصویر محصول"
+      >
+
+      <input
+        id="product-price"
+        type="number"
+        placeholder="قیمت فروش به مشتری به تومان"
+      >
+
+      <input
+        id="product-supplier-price"
+        type="number"
+        placeholder="قیمت خرید از تأمین‌کننده به تومان"
+      >
+
+      <input
+        id="product-commission"
+        type="number"
+        placeholder="سود/کمیسیون به تومان"
+      >
+
+      <input
+        id="product-stock"
+        type="number"
+        placeholder="موجودی"
+        value="0"
+      >
+
+      <input
+        id="product-supplier-id"
+        type="number"
+        placeholder="شناسه فروشنده"
+      >
+
+      <input
+        id="product-sku"
+        placeholder="SKU / کد محصول فروشنده"
+      >
+
+      <input
+        id="product-delivery"
+        placeholder="زمان ارسال تقریبی"
+      >
+
+      <button
+        class="btn orange"
+        onclick="createProductAdmin()"
+      >
+        ثبت محصول
+      </button>
+
+    </div>
+
+  </section>
+
+
+  <section
+    class="cart-box"
+    style="margin-top:20px;"
+  >
+
+    <h2>
+      اطلاعات مدیریت
+    </h2>
+
+    <p
+      style="
+        color:#64748b;
+        font-size:14px;
+      "
+    >
+      بعد از ثبت فروشنده، شناسه فروشنده در پاسخ
+      ثبت نمایش داده می‌شود و می‌توانی همان شناسه
+      را هنگام ثبت محصول وارد کنی.
+    </p>
+
+    <button
+      class="btn secondary"
+      onclick="loadAdminData()"
+    >
+      نمایش محصولات، فروشندگان و سفارش‌ها
+    </button>
+
+    <div
+      id="admin-data"
+      style="margin-top:20px;"
+    ></div>
+
+  </section>
+  `;
 }
 
 
@@ -3414,6 +4444,440 @@ function layout(
   }
 
 
+  function adminLogin() {
+
+    const password =
+      document.getElementById(
+        "admin-password"
+      )?.value || "";
+
+    if (!password) {
+      alert(
+        "رمز مدیریت را وارد کنید."
+      );
+      return;
+    }
+
+    sessionStorage.setItem(
+      "digimarixo_admin_password",
+      password
+    );
+
+    location.reload();
+  }
+
+
+  function adminHeaders() {
+
+    return {
+      "content-type":
+        "application/json",
+
+      "X-Admin-Password":
+        sessionStorage.getItem(
+          "digimarixo_admin_password"
+        ) || ""
+    };
+  }
+
+
+  async function createSupplierAdmin() {
+
+    try {
+
+      const response =
+        await fetch(
+          "/api/admin/suppliers",
+          {
+            method:
+              "POST",
+
+            headers:
+              adminHeaders(),
+
+            body:
+              JSON.stringify({
+                name:
+                  document.getElementById(
+                    "supplier-name"
+                  )?.value || "",
+
+                phone:
+                  document.getElementById(
+                    "supplier-phone"
+                  )?.value || "",
+
+                email:
+                  document.getElementById(
+                    "supplier-email"
+                  )?.value || "",
+
+                website:
+                  document.getElementById(
+                    "supplier-website"
+                  )?.value || "",
+
+                address:
+                  document.getElementById(
+                    "supplier-address"
+                  )?.value || "",
+
+                shipping_method:
+                  document.getElementById(
+                    "supplier-shipping"
+                  )?.value || "",
+
+                direct_shipping:
+                  document.getElementById(
+                    "supplier-direct"
+                  )?.checked
+                    ? 1
+                    : 0
+              })
+          }
+        );
+
+      const result =
+        await response.json();
+
+      if (!result.ok) {
+        alert(
+          result.error ||
+          "ثبت فروشنده انجام نشد."
+        );
+        return;
+      }
+
+      alert(
+        "فروشنده ثبت شد. شناسه فروشنده: " +
+        result.supplier_id
+      );
+
+    } catch {
+      alert(
+        "خطا در ثبت فروشنده."
+      );
+    }
+  }
+
+
+  async function createProductAdmin() {
+
+    try {
+
+      const response =
+        await fetch(
+          "/api/admin/products",
+          {
+            method:
+              "POST",
+
+            headers:
+              adminHeaders(),
+
+            body:
+              JSON.stringify({
+                name:
+                  document.getElementById(
+                    "product-name"
+                  )?.value || "",
+
+                category:
+                  document.getElementById(
+                    "product-category"
+                  )?.value || "سایر",
+
+                description:
+                  document.getElementById(
+                    "product-description"
+                  )?.value || "",
+
+                image:
+                  document.getElementById(
+                    "product-image"
+                  )?.value || "",
+
+                price:
+                  Number(
+                    document.getElementById(
+                      "product-price"
+                    )?.value || 0
+                  ),
+
+                supplier_price:
+                  Number(
+                    document.getElementById(
+                      "product-supplier-price"
+                    )?.value || 0
+                  ),
+
+                commission:
+                  Number(
+                    document.getElementById(
+                      "product-commission"
+                    )?.value || 0
+                  ),
+
+                stock:
+                  Number(
+                    document.getElementById(
+                      "product-stock"
+                    )?.value || 0
+                  ),
+
+                supplier_id:
+                  document.getElementById(
+                    "product-supplier-id"
+                  )?.value || null,
+
+                supplier_sku:
+                  document.getElementById(
+                    "product-sku"
+                  )?.value || "",
+
+                delivery_days:
+                  document.getElementById(
+                    "product-delivery"
+                  )?.value || ""
+              })
+          }
+        );
+
+      const result =
+        await response.json();
+
+      if (!result.ok) {
+        alert(
+          result.error ||
+          "ثبت محصول انجام نشد."
+        );
+        return;
+      }
+
+      alert(
+        "محصول ثبت شد. شناسه محصول: " +
+        result.product_id
+      );
+
+      location.reload();
+
+    } catch {
+      alert(
+        "خطا در ثبت محصول."
+      );
+    }
+  }
+
+
+  async function loadAdminData() {
+
+    const box =
+      document.getElementById(
+        "admin-data"
+      );
+
+    if (!box) {
+      return;
+    }
+
+    box.innerHTML =
+      "در حال دریافت اطلاعات...";
+
+    try {
+
+      const password =
+        sessionStorage.getItem(
+          "digimarixo_admin_password"
+        ) || "";
+
+      const headers = {
+        "X-Admin-Password":
+          password
+      };
+
+      const [
+        suppliersResponse,
+        productsResponse,
+        ordersResponse
+      ] =
+        await Promise.all([
+          fetch(
+            "/api/suppliers",
+            {
+              headers
+            }
+          ),
+          fetch(
+            "/api/products"
+          ),
+          fetch(
+            "/api/orders",
+            {
+              headers
+            }
+          )
+        ]);
+
+      const suppliers =
+        await suppliersResponse.json();
+
+      const products =
+        await productsResponse.json();
+
+      const orders =
+        await ordersResponse.json();
+
+      let html =
+        "<div>";
+
+      html +=
+        "<h3>فروشندگان</h3>";
+
+      if (
+        suppliers.ok &&
+        suppliers.suppliers?.length
+      ) {
+
+        html +=
+          "<ul>";
+
+        suppliers.suppliers.forEach(
+          supplier => {
+
+            html +=
+              "<li>" +
+              escapeClientHTML(
+                supplier.name
+              ) +
+              " — شناسه: " +
+              formatNumber(
+                supplier.id
+              ) +
+              " — ارسال مستقیم: " +
+              (
+                Number(
+                  supplier.direct_shipping
+                ) === 1
+                  ? "بله"
+                  : "خیر"
+              ) +
+              "</li>";
+          }
+        );
+
+        html +=
+          "</ul>";
+
+      } else {
+
+        html +=
+          "<p>فروشنده‌ای ثبت نشده است.</p>";
+      }
+
+      html +=
+        "<h3>محصولات</h3>";
+
+      if (
+        products.ok &&
+        products.products?.length
+      ) {
+
+        html +=
+          "<ul>";
+
+        products.products.forEach(
+          product => {
+
+            html +=
+              "<li>" +
+              escapeClientHTML(
+                product.name
+              ) +
+              " — " +
+              formatNumber(
+                product.price
+              ) +
+              " تومان" +
+              " — موجودی: " +
+              formatNumber(
+                product.stock
+              ) +
+              " — فروشنده: " +
+              escapeClientHTML(
+                product.supplier_name ||
+                "تعیین نشده"
+              ) +
+              "</li>";
+          }
+        );
+
+        html +=
+          "</ul>";
+
+      } else {
+
+        html +=
+          "<p>محصولی ثبت نشده است.</p>";
+      }
+
+      html +=
+        "<h3>سفارش‌ها</h3>";
+
+      if (
+        orders.ok &&
+        orders.orders?.length
+      ) {
+
+        html +=
+          "<ul>";
+
+        orders.orders.forEach(
+          order => {
+
+            html +=
+              "<li>" +
+              "سفارش #" +
+              formatNumber(
+                order.id
+              ) +
+              " — " +
+              escapeClientHTML(
+                order.customer_name
+              ) +
+              " — " +
+              formatNumber(
+                order.total
+              ) +
+              " تومان — " +
+              escapeClientHTML(
+                order.status
+              ) +
+              "</li>";
+          }
+        );
+
+        html +=
+          "</ul>";
+
+      } else {
+
+        html +=
+          "<p>سفارشی ثبت نشده است.</p>";
+      }
+
+      html +=
+        "</div>";
+
+      box.innerHTML =
+        html;
+
+    } catch {
+      box.innerHTML =
+        "<p>خطا در دریافت اطلاعات مدیریت.</p>";
+    }
+  }
+
+
   function escapeClientHTML(
     value
   ) {
@@ -3567,6 +5031,27 @@ function formatPrice(
 }
 
 
+function formatNumber(
+  value
+) {
+
+  const number =
+    Number(value);
+
+  if (
+    !Number.isFinite(
+      number
+    )
+  ) {
+    return "۰";
+  }
+
+  return number.toLocaleString(
+    "fa-IR"
+  );
+}
+
+
 function escapeHTML(
   value
 ) {
@@ -3649,4 +5134,4 @@ function safeError(
   return String(
     error
   );
-       }
+                    }
