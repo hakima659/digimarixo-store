@@ -168,6 +168,11 @@ async function initDB(env) {
     )
   `).run();
 
+  /*
+    Migration for old products table.
+    This checks existing columns before ALTER TABLE.
+  */
+
   const columns = await env.DB
     .prepare(`PRAGMA table_info(products)`)
     .all();
@@ -290,15 +295,9 @@ async function getProducts(env) {
     ORDER BY id DESC
   `).all();
 
-  const products = (result.results || []).map(product => ({
-    ...product,
-    price: safePrice(product.price),
-    stock: safeStock(product.stock)
-  }));
-
   return {
     ok: true,
-    products
+    products: result.results || []
   };
 }
 
@@ -328,9 +327,6 @@ async function getProduct(env, id) {
       error: "محصول پیدا نشد"
     };
   }
-
-  product.price = safePrice(product.price);
-  product.stock = safeStock(product.stock);
 
   return {
     ok: true,
@@ -442,7 +438,7 @@ async function createOrder(request, env) {
       );
     }
 
-    const price = safePrice(product.price);
+    const price = Number(product.price || 0);
 
     total += price * quantity;
 
@@ -721,7 +717,7 @@ function productDetailPage(product) {
       </div>
     `;
 
-  const stock = safeStock(product.stock);
+  const stock = Number(product.stock || 0);
 
   return `
     <section class="product-detail">
@@ -767,7 +763,7 @@ function productDetailPage(product) {
                 onclick="addToCart(
                   ${Number(product.id)},
                   '${escapeJS(product.name || "محصول")}',
-                  ${safePrice(product.price)}
+                  ${Number(product.price || 0)}
                 )"
               >
                 افزودن به سبد خرید
@@ -817,10 +813,7 @@ function productCard(product) {
     formatPrice(product.price);
 
   const stock =
-    safeStock(product.stock);
-
-  const safeProductPrice =
-    safePrice(product.price);
+    Number(product.stock || 0);
 
   const image = product.image
     ? `
@@ -891,7 +884,7 @@ function productCard(product) {
                   onclick="addToCart(
                     ${id},
                     '${escapeJS(product.name || "محصول")}',
-                    ${safeProductPrice}
+                    ${Number(product.price || 0)}
                   )"
                 >
                   افزودن به سبد
@@ -2134,7 +2127,7 @@ function layout(title, content) {
       cart.push({
         id: Number(id),
         name: name,
-        price: Number(price) || 0,
+        price: Number(price),
         quantity: 1
       });
 
@@ -2151,13 +2144,9 @@ function layout(title, content) {
 
 
   function formatNumber(value) {
-    const number = Number(value);
-
-    if (!Number.isFinite(number)) {
-      return "۰";
-    }
-
-    return number.toLocaleString("fa-IR");
+    return Number(
+      value || 0
+    ).toLocaleString("fa-IR");
   }
 
 
@@ -2198,25 +2187,9 @@ function layout(title, content) {
       cart.map(
         function(item, index) {
 
-          const price =
-            Number(item.price);
-
-          const quantity =
-            Number(item.quantity || 1);
-
-          const safePrice =
-            Number.isFinite(price)
-              ? price
-              : 0;
-
-          const safeQuantity =
-            Number.isFinite(quantity) &&
-            quantity > 0
-              ? quantity
-              : 1;
-
           const line =
-            safePrice * safeQuantity;
+            Number(item.price || 0) *
+            Number(item.quantity || 1);
 
           total += line;
 
@@ -2248,7 +2221,7 @@ function layout(title, content) {
                 >
                   تعداد:
                   ${formatNumber(
-                    safeQuantity
+                    item.quantity
                   )}
                 </div>
 
@@ -2451,76 +2424,37 @@ function json(data, status = 200) {
 
 
 /* =========================================================
-   PRICE / NUMBER HELPERS
+   HELPERS
 ========================================================= */
 
-function safePrice(value) {
-  let raw = String(value ?? "").trim();
-
-  // اعداد فارسی
-  raw = raw.replace(/[۰-۹]/g, d =>
-    "۰۱۲۳۴۵۶۷۸۹".indexOf(d)
-  );
-
-  // اعداد عربی
-  raw = raw.replace(/[٠-٩]/g, d =>
-    "٠١٢٣٤٥٦٧٨٩".indexOf(d)
-  );
-
-  // حذف واحدهای پول و جداکننده‌ها
-  raw = raw
-    .replace(/تومان/gi, "")
-    .replace(/ریال/gi, "")
-    .replace(/,/g, "")
-    .replace(/٬/g, "")
-    .replace(/\s+/g, "")
-    .trim();
-
-  const number = Number(raw);
-
-  if (!Number.isFinite(number) || number < 0) {
-    return 0;
-  }
-
-  return Math.round(number);
-}
-
-
-function safeStock(value) {
-  const number = Number(value);
-
-  if (!Number.isFinite(number) || number < 0) {
-    return 0;
-  }
-
-  return Math.floor(number);
-}
-
+/*
+  FIX:
+  جلوگیری از نمایش NaN تومان
+  و پشتیبانی از اعداد فارسی و عربی
+*/
 
 function formatPrice(value) {
-  const number = safePrice(value);
+  const normalized = String(value ?? "")
+    .replace(/[۰-۹]/g, d => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
+    .replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d))
+    .replace(/[,\s٬،]/g, "");
+
+  const number = Number(normalized);
 
   return (
-    number.toLocaleString("fa-IR") +
+    (Number.isFinite(number) ? number : 0)
+      .toLocaleString("fa-IR") +
     " تومان"
   );
 }
 
 
 function formatNumber(value) {
-  const number = Number(value);
-
-  if (!Number.isFinite(number)) {
-    return "۰";
-  }
-
-  return number.toLocaleString("fa-IR");
+  return Number(
+    value || 0
+  ).toLocaleString("fa-IR");
 }
 
-
-/* =========================================================
-   ESCAPE HELPERS
-========================================================= */
 
 function escapeHTML(value) {
   return String(value ?? "")
@@ -2557,4 +2491,4 @@ function safeError(error) {
   }
 
   return String(error);
-                 }
+      }
