@@ -592,19 +592,14 @@ async function userOrders(env, userId) {
         orders.id,
         orders.status,
         orders.created_at,
-
         products.id AS product_id,
         products.name AS product_name,
         products.price AS product_price,
         products.image AS product_image
-
       FROM orders
-
       JOIN products
         ON products.id = orders.product_id
-
       WHERE orders.user_id = ?
-
       ORDER BY orders.id DESC
     `).bind(userId).all();
 
@@ -954,24 +949,18 @@ async function adminOrders(request, env) {
         orders.id,
         orders.status,
         orders.created_at,
-
         users.id AS user_id,
         users.username,
         users.email,
-
         products.id AS product_id,
         products.name AS product_name,
         products.price AS product_price,
         products.image AS product_image
-
       FROM orders
-
       JOIN users
         ON users.id = orders.user_id
-
       JOIN products
         ON products.id = orders.product_id
-
       ORDER BY orders.id DESC
     `).all();
 
@@ -1068,9 +1057,7 @@ function homePage() {
 <head>
 
 <meta charset="UTF-8">
-
-<meta name="viewport"
-content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <title>${STORE_NAME} | ${STORE_EN}</title>
 
@@ -1080,170 +1067,310 @@ content="فروشگاه دیجیتال ${STORE_NAME} برای خرید محصو�
 <style>
 
 * {
-  box-sizing: border-box;
+  box-sizing:border-box;
+}
+
+:root {
+  --primary:#5b5cf0;
+  --primary-dark:#4647d8;
+  --text:#172033;
+  --muted:#6b7280;
+  --bg:#f5f7ff;
+  --card:#ffffff;
+  --border:#e7e9f2;
 }
 
 body {
-  margin: 0;
-  font-family: Tahoma, Arial, sans-serif;
-  background: #f5f7fb;
-  color: #172033;
+  margin:0;
+  font-family:Tahoma,Arial,sans-serif;
+  background:
+    radial-gradient(circle at top right,#eef0ff 0,#f5f7ff 35%,#f8fafc 100%);
+  color:var(--text);
 }
 
 header {
-  background: #ffffff;
-  border-bottom: 1px solid #e5e7eb;
-  padding: 16px 20px;
-  position: sticky;
-  top: 0;
-  z-index: 20;
+  background:rgba(255,255,255,.9);
+  backdrop-filter:blur(14px);
+  border-bottom:1px solid rgba(231,233,242,.9);
+  padding:14px 18px;
+  position:sticky;
+  top:0;
+  z-index:20;
 }
 
 .nav {
-  max-width: 1100px;
-  margin: auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 15px;
+  max-width:1120px;
+  margin:auto;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:15px;
 }
 
 .logo {
-  font-size: 21px;
-  font-weight: bold;
-  color: #111827;
-  text-decoration: none;
+  text-decoration:none;
+  color:var(--text);
+  font-size:20px;
+  font-weight:900;
 }
 
 .logo small {
-  display: block;
-  font-size: 11px;
-  color: #6b7280;
-  margin-top: 3px;
+  display:block;
+  color:var(--muted);
+  font-size:10px;
+  margin-top:4px;
+  letter-spacing:.5px;
 }
 
 .nav-links {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
 }
 
 .nav-links a {
-  color: #374151;
-  text-decoration: none;
-  padding: 8px 12px;
-  border-radius: 9px;
+  color:#374151;
+  text-decoration:none;
+  padding:9px 12px;
+  border-radius:11px;
+  font-size:14px;
+  transition:.2s;
 }
 
 .nav-links a:hover {
-  background: #f3f4f6;
+  background:#eef0ff;
+  color:var(--primary);
 }
 
 .container {
-  max-width: 1100px;
-  margin: auto;
-  padding: 30px 20px;
+  max-width:1120px;
+  margin:auto;
+  padding:28px 18px 45px;
 }
 
 .hero {
-  background: linear-gradient(135deg,#111827,#374151);
-  color: white;
-  padding: 45px 25px;
-  border-radius: 22px;
-  margin-bottom: 30px;
+  position:relative;
+  overflow:hidden;
+  background:
+    linear-gradient(135deg,#171a3b 0%,#3639a6 55%,#6466ff 100%);
+  color:white;
+  padding:48px 30px;
+  border-radius:28px;
+  margin-bottom:34px;
+  box-shadow:0 18px 45px rgba(70,72,216,.22);
+}
+
+.hero:before {
+  content:"";
+  position:absolute;
+  width:240px;
+  height:240px;
+  border-radius:50%;
+  background:rgba(255,255,255,.08);
+  left:-70px;
+  top:-90px;
+}
+
+.hero:after {
+  content:"";
+  position:absolute;
+  width:180px;
+  height:180px;
+  border-radius:50%;
+  background:rgba(255,255,255,.06);
+  right:8%;
+  bottom:-100px;
+}
+
+.hero-content {
+  position:relative;
+  z-index:2;
+  max-width:700px;
+}
+
+.hero-badge {
+  display:inline-block;
+  background:rgba(255,255,255,.12);
+  border:1px solid rgba(255,255,255,.2);
+  padding:7px 12px;
+  border-radius:999px;
+  font-size:12px;
+  margin-bottom:15px;
 }
 
 .hero h1 {
-  margin-top: 0;
-  font-size: 32px;
+  margin:0 0 12px;
+  font-size:34px;
+  line-height:1.4;
 }
 
 .hero p {
-  line-height: 2;
-  color: #e5e7eb;
+  margin:0 0 24px;
+  line-height:2;
+  color:#eef0ff;
 }
 
-.section-title {
-  margin: 30px 0 18px;
-}
-
-.products {
-  display: grid;
-  grid-template-columns: repeat(auto-fit,minmax(230px,1fr));
-  gap: 18px;
-}
-
-.card {
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 18px;
-  padding: 20px;
-  box-shadow: 0 5px 18px rgba(0,0,0,.04);
-}
-
-.product-image {
-  font-size: 55px;
-  text-align: center;
-  padding: 20px;
-}
-
-.card h3 {
-  margin: 10px 0;
-}
-
-.card p {
-  color: #6b7280;
-  line-height: 1.8;
-}
-
-.price {
-  font-weight: bold;
-  margin: 15px 0;
-  font-size: 18px;
+.hero-buttons {
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
 }
 
 .btn {
-  display: inline-block;
-  border: 0;
-  background: #111827;
-  color: white;
-  padding: 11px 16px;
-  border-radius: 10px;
-  cursor: pointer;
-  text-decoration: none;
-  font-size: 14px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border:0;
+  background:var(--primary);
+  color:white;
+  padding:11px 17px;
+  border-radius:12px;
+  cursor:pointer;
+  text-decoration:none;
+  font-size:14px;
+  font-family:inherit;
+  transition:.2s;
 }
 
 .btn:hover {
-  opacity: .9;
+  transform:translateY(-1px);
+  background:var(--primary-dark);
 }
 
 .btn-light {
-  background: #f3f4f6;
-  color: #111827;
+  background:white;
+  color:#30328f;
 }
 
-footer {
-  margin-top: 50px;
-  padding: 25px;
-  text-align: center;
-  color: #6b7280;
+.btn-light:hover {
+  background:#f4f5ff;
+}
+
+.section-head {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  margin:0 0 18px;
+}
+
+.section-title {
+  margin:0;
+  font-size:23px;
+}
+
+.section-subtitle {
+  color:var(--muted);
+  font-size:13px;
+}
+
+.products {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(235px,1fr));
+  gap:18px;
+}
+
+.card {
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:18px;
+  box-shadow:0 8px 28px rgba(31,41,55,.05);
+  transition:.25s;
+}
+
+.card:hover {
+  transform:translateY(-4px);
+  box-shadow:0 14px 35px rgba(31,41,55,.09);
+}
+
+.product-image {
+  min-height:150px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:64px;
+  border-radius:16px;
+  background:linear-gradient(135deg,#f1f2ff,#fafaff);
+  margin-bottom:15px;
+}
+
+.card h3 {
+  margin:8px 0;
+  font-size:18px;
+}
+
+.card p {
+  color:var(--muted);
+  line-height:1.9;
+  min-height:48px;
+}
+
+.price {
+  font-weight:900;
+  color:var(--primary);
+  margin:16px 0;
+  font-size:18px;
 }
 
 .loading {
-  text-align: center;
-  padding: 30px;
-  color: #6b7280;
+  grid-column:1/-1;
+  text-align:center;
+  padding:40px;
+  color:var(--muted);
+  background:white;
+  border-radius:20px;
+  border:1px solid var(--border);
+}
+
+footer {
+  margin-top:25px;
+  padding:30px 20px;
+  text-align:center;
+  color:var(--muted);
+  border-top:1px solid var(--border);
+  background:white;
+}
+
+@media(max-width:650px) {
+
+  .nav {
+    align-items:flex-start;
+  }
+
+  .nav-links {
+    justify-content:flex-end;
+  }
+
+  .nav-links a {
+    padding:7px 8px;
+    font-size:12px;
+  }
+
+  .hero {
+    padding:35px 20px;
+    border-radius:22px;
+  }
+
+  .hero h1 {
+    font-size:27px;
+  }
+
+  .container {
+    padding:20px 13px 35px;
+  }
+
+  .products {
+    grid-template-columns:1fr;
+  }
 }
 
 </style>
-
 </head>
 
 <body>
 
 <header>
-
 <div class="nav">
 
 <a class="logo" href="/">
@@ -1258,29 +1385,56 @@ ${STORE_NAME}
 </div>
 
 </div>
-
 </header>
 
 <main class="container">
 
 <section class="hero">
 
-<h1>${STORE_NAME}</h1>
+<div class="hero-content">
+
+<div class="hero-badge">
+فروشگاه دیجیتال ${STORE_EN}
+</div>
+
+<h1>
+ابزارها و محصولات دیجیتال برای شما
+</h1>
 
 <p>
-فروشگاه دیجیتال ${STORE_EN}
-برای ارائه محصولات و ابزارهای دیجیتال.
+${STORE_NAME} یک فروشگاه دیجیتال برای ارائه
+محصولات و ابزارهای کاربردی است؛ ساده، سریع و مناسب موبایل.
 </p>
+
+<div class="hero-buttons">
 
 <a class="btn btn-light" href="#products">
 مشاهده محصولات
 </a>
 
+<a class="btn"
+href="/account">
+حساب کاربری
+</a>
+
+</div>
+
+</div>
 </section>
 
+<div class="section-head">
+
+<div>
 <h2 class="section-title">
 محصولات
 </h2>
+
+<div class="section-subtitle">
+محصولات دیجیتال موجود در فروشگاه
+</div>
+</div>
+
+</div>
 
 <div id="products" class="products">
 
@@ -1297,6 +1451,15 @@ ${STORE_NAME} — ${STORE_EN}
 </footer>
 
 <script>
+
+function escapeHtmlClient(value) {
+  return String(value ?? "")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
 
 async function loadProducts() {
 
@@ -1317,13 +1480,10 @@ async function loadProducts() {
       );
     }
 
-    if (
-      !data.products ||
-      data.products.length === 0
-    ) {
+    if (!data.products || !data.products.length) {
 
       box.innerHTML =
-        '<div class="card">' +
+        '<div class="loading">' +
         'هنوز محصولی ثبت نشده است.' +
         '</div>';
 
@@ -1337,23 +1497,23 @@ async function loadProducts() {
           '<div class="card">' +
 
           '<div class="product-image">' +
-          escapeHtml(
+          escapeHtmlClient(
             product.image || "🛍️"
           ) +
           '</div>' +
 
           '<h3>' +
-          escapeHtml(product.name) +
+          escapeHtmlClient(product.name) +
           '</h3>' +
 
           '<p>' +
-          escapeHtml(
+          escapeHtmlClient(
             product.description || ""
           ) +
           '</p>' +
 
           '<div class="price">' +
-          escapeHtml(
+          escapeHtmlClient(
             product.price || "تماس بگیرید"
           ) +
           '</div>' +
@@ -1372,7 +1532,7 @@ async function loadProducts() {
   } catch (error) {
 
     box.innerHTML =
-      '<div class="card">' +
+      '<div class="loading">' +
       'دریافت محصولات انجام نشد.' +
       '</div>';
   }
@@ -1383,7 +1543,6 @@ loadProducts();
 </script>
 
 </body>
-
 </html>
 `;
 }
@@ -1401,9 +1560,7 @@ function productPage(product) {
 <head>
 
 <meta charset="UTF-8">
-
-<meta name="viewport"
-content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <title>
 ${escapeHtml(product.name)} | ${STORE_NAME}
@@ -1411,67 +1568,78 @@ ${escapeHtml(product.name)} | ${STORE_NAME}
 
 <style>
 
+* {
+  box-sizing:border-box;
+}
+
 body {
   margin:0;
   font-family:Tahoma,Arial,sans-serif;
-  background:#f5f7fb;
+  background:#f5f7ff;
   color:#172033;
 }
 
 .container {
   max-width:900px;
   margin:auto;
-  padding:30px 20px;
+  padding:28px 16px;
+}
+
+.back {
+  display:inline-flex;
+  margin-bottom:18px;
+  text-decoration:none;
+  color:#4f46e5;
+  font-size:14px;
 }
 
 .card {
   background:white;
-  border-radius:20px;
-  padding:30px;
-  box-shadow:0 5px 25px rgba(0,0,0,.06);
+  border:1px solid #e7e9f2;
+  border-radius:24px;
+  padding:25px;
+  box-shadow:0 12px 35px rgba(31,41,55,.07);
 }
 
 .image {
   text-align:center;
   font-size:90px;
-  padding:30px;
+  padding:35px;
+  border-radius:20px;
+  background:linear-gradient(135deg,#f0f1ff,#fafaff);
 }
 
 h1 {
-  margin-bottom:15px;
+  margin:25px 0 12px;
 }
 
 .description {
   line-height:2;
-  color:#4b5563;
+  color:#5f6675;
 }
 
 .price {
-  font-size:22px;
-  font-weight:bold;
+  font-size:24px;
+  font-weight:900;
+  color:#5657e9;
   margin:25px 0;
 }
 
 .btn {
   border:0;
-  background:#111827;
+  background:#5758ed;
   color:white;
   padding:13px 20px;
-  border-radius:10px;
+  border-radius:12px;
   cursor:pointer;
-}
-
-.back {
-  display:inline-block;
-  margin-bottom:20px;
-  text-decoration:none;
-  color:#374151;
+  font-family:inherit;
 }
 
 #message {
   margin-top:20px;
   padding:12px;
-  border-radius:10px;
+  border-radius:12px;
+  background:#f5f7ff;
 }
 
 </style>
@@ -1575,7 +1743,6 @@ async function buyProduct() {
 </script>
 
 </body>
-
 </html>
 `;
 }
@@ -1593,13 +1760,9 @@ function accountPage() {
 <head>
 
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<meta name="viewport"
-content="width=device-width, initial-scale=1.0">
-
-<title>
-حساب کاربری | ${STORE_NAME}
-</title>
+<title>حساب کاربری | ${STORE_NAME}</title>
 
 <style>
 
@@ -1609,23 +1772,24 @@ content="width=device-width, initial-scale=1.0">
 
 body {
   margin:0;
-  background:#f5f7fb;
+  background:#f5f7ff;
   font-family:Tahoma,Arial,sans-serif;
   color:#172033;
 }
 
 .container {
-  max-width:1000px;
+  max-width:900px;
   margin:auto;
-  padding:30px 20px;
+  padding:28px 16px;
 }
 
 .card {
   background:white;
-  border-radius:18px;
-  padding:25px;
-  margin-bottom:20px;
-  box-shadow:0 5px 20px rgba(0,0,0,.05);
+  border:1px solid #e7e9f2;
+  border-radius:22px;
+  padding:23px;
+  margin-bottom:18px;
+  box-shadow:0 10px 30px rgba(31,41,55,.06);
 }
 
 h1,h2 {
@@ -1634,30 +1798,38 @@ h1,h2 {
 
 input {
   width:100%;
-  padding:12px;
+  padding:13px;
   margin:7px 0 12px;
-  border:1px solid #d1d5db;
-  border-radius:10px;
+  border:1px solid #dfe2ec;
+  border-radius:12px;
+  font-family:inherit;
+  outline:none;
+}
+
+input:focus {
+  border-color:#6366f1;
+  box-shadow:0 0 0 3px rgba(99,102,241,.1);
 }
 
 button {
   border:0;
-  background:#111827;
+  background:#5758ed;
   color:white;
-  padding:11px 16px;
-  border-radius:10px;
+  padding:11px 17px;
+  border-radius:11px;
   cursor:pointer;
+  font-family:inherit;
 }
 
 button.secondary {
-  background:#e5e7eb;
-  color:#111827;
+  background:#eef0f7;
+  color:#303542;
 }
 
-.message {
-  margin-top:12px;
-  padding:10px;
-  border-radius:10px;
+hr {
+  border:0;
+  border-top:1px solid #eceef4;
+  margin:25px 0;
 }
 
 .orders {
@@ -1666,17 +1838,22 @@ button.secondary {
 }
 
 .order {
-  border:1px solid #e5e7eb;
-  border-radius:12px;
-  padding:15px;
+  border:1px solid #e7e9f2;
+  border-radius:15px;
+  padding:16px;
 }
 
 .status {
   display:inline-block;
-  background:#f3f4f6;
-  padding:5px 9px;
-  border-radius:7px;
+  background:#f0f1ff;
+  color:#5557df;
+  padding:6px 10px;
+  border-radius:8px;
   margin-top:8px;
+}
+
+#authMessage {
+  margin-top:12px;
 }
 
 </style>
@@ -1752,10 +1929,7 @@ placeholder="رمز عبور"
 
 <div id="userInfo"></div>
 
-<button
-class="secondary"
-onclick="logout()"
->
+<button class="secondary" onclick="logout()">
 خروج
 </button>
 
@@ -1783,6 +1957,15 @@ onclick="logout()"
 
 <script>
 
+function escapeHtmlClient(value) {
+  return String(value ?? "")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
 async function loadMe() {
 
   const response =
@@ -1802,11 +1985,11 @@ async function loadMe() {
     document.getElementById("userInfo")
       .innerHTML =
         '<p>نام کاربری: <strong>' +
-        escapeHtml(data.user.username) +
+        escapeHtmlClient(data.user.username) +
         '</strong></p>' +
 
         '<p>ایمیل: ' +
-        escapeHtml(data.user.email) +
+        escapeHtmlClient(data.user.email) +
         '</p>';
 
     loadOrders();
@@ -1817,24 +2000,16 @@ async function loadMe() {
 async function register() {
 
   const username =
-    document.getElementById(
-      "registerUsername"
-    ).value;
+    document.getElementById("registerUsername").value;
 
   const email =
-    document.getElementById(
-      "registerEmail"
-    ).value;
+    document.getElementById("registerEmail").value;
 
   const password =
-    document.getElementById(
-      "registerPassword"
-    ).value;
+    document.getElementById("registerPassword").value;
 
   const message =
-    document.getElementById(
-      "authMessage"
-    );
+    document.getElementById("authMessage");
 
   const response =
     await fetch("/api/register", {
@@ -1850,7 +2025,6 @@ async function register() {
         email,
         password
       })
-
     });
 
   const data =
@@ -1866,19 +2040,13 @@ async function register() {
 async function login() {
 
   const identity =
-    document.getElementById(
-      "loginIdentity"
-    ).value;
+    document.getElementById("loginIdentity").value;
 
   const password =
-    document.getElementById(
-      "loginPassword"
-    ).value;
+    document.getElementById("loginPassword").value;
 
   const message =
-    document.getElementById(
-      "authMessage"
-    );
+    document.getElementById("authMessage");
 
   const response =
     await fetch("/api/login", {
@@ -1893,7 +2061,6 @@ async function login() {
         username:identity,
         password
       })
-
     });
 
   const data =
@@ -1964,20 +2131,18 @@ async function loadOrders() {
         '</strong>' +
 
         '<p>' +
-        escapeHtml(
-          order.product_name
-        ) +
+        escapeHtmlClient(order.product_name) +
         '</p>' +
 
         '<p>قیمت: ' +
-        escapeHtml(
+        escapeHtmlClient(
           order.product_price || "-"
         ) +
         '</p>' +
 
         '<span class="status">' +
         'وضعیت: ' +
-        escapeHtml(order.status) +
+        escapeHtmlClient(order.status) +
         '</span>' +
 
         '</div>'
@@ -1994,7 +2159,6 @@ loadMe();
 </script>
 
 </body>
-
 </html>
 `;
 }
@@ -2012,13 +2176,9 @@ function adminPage() {
 <head>
 
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<meta name="viewport"
-content="width=device-width, initial-scale=1.0">
-
-<title>
-مدیریت | ${STORE_NAME}
-</title>
+<title>مدیریت | ${STORE_NAME}</title>
 
 <style>
 
@@ -2028,7 +2188,7 @@ content="width=device-width, initial-scale=1.0">
 
 body {
   margin:0;
-  background:#f5f7fb;
+  background:#f5f7ff;
   color:#172033;
   font-family:Tahoma,Arial,sans-serif;
 }
@@ -2036,15 +2196,16 @@ body {
 .container {
   max-width:1100px;
   margin:auto;
-  padding:25px 18px;
+  padding:25px 16px;
 }
 
 .card {
   background:white;
-  border-radius:18px;
+  border:1px solid #e7e9f2;
+  border-radius:20px;
   padding:22px;
-  margin-bottom:20px;
-  box-shadow:0 5px 20px rgba(0,0,0,.05);
+  margin-bottom:18px;
+  box-shadow:0 9px 28px rgba(31,41,55,.06);
 }
 
 h1,h2 {
@@ -2055,33 +2216,36 @@ input,
 textarea,
 select {
   width:100%;
-  padding:11px;
+  padding:12px;
   margin:6px 0 12px;
-  border:1px solid #d1d5db;
-  border-radius:9px;
+  border:1px solid #dfe2ec;
+  border-radius:11px;
   font-family:inherit;
+  outline:none;
 }
 
 textarea {
   min-height:100px;
+  resize:vertical;
 }
 
 button {
   border:0;
-  background:#111827;
+  background:#5758ed;
   color:white;
   padding:10px 15px;
-  border-radius:9px;
+  border-radius:10px;
   cursor:pointer;
+  font-family:inherit;
 }
 
 button.danger {
-  background:#b91c1c;
+  background:#dc3545;
 }
 
 button.secondary {
-  background:#e5e7eb;
-  color:#111827;
+  background:#eef0f7;
+  color:#303542;
 }
 
 .hidden {
@@ -2095,26 +2259,27 @@ button.secondary {
 }
 
 .item {
-  border:1px solid #e5e7eb;
-  border-radius:14px;
-  padding:15px;
+  border:1px solid #e7e9f2;
+  border-radius:15px;
+  padding:16px;
 }
 
 .row {
   display:flex;
-  gap:10px;
+  gap:9px;
   flex-wrap:wrap;
   align-items:center;
 }
 
 .order-info {
-  line-height:1.9;
+  line-height:2;
 }
 
 .badge {
   display:inline-block;
   padding:5px 9px;
-  background:#f3f4f6;
+  background:#f0f1ff;
+  color:#5557df;
   border-radius:8px;
   font-size:13px;
 }
@@ -2169,24 +2334,15 @@ placeholder="رمز مدیریت"
 
 <div class="row">
 
-<button
-class="secondary"
-onclick="adminLogout()"
->
+<button class="secondary" onclick="adminLogout()">
 خروج از مدیریت
 </button>
 
-<button
-class="secondary"
-onclick="loadProducts()"
->
+<button class="secondary" onclick="loadProducts()">
 بروزرسانی محصولات
 </button>
 
-<button
-class="secondary"
-onclick="loadOrders()"
->
+<button class="secondary" onclick="loadOrders()">
 بروزرسانی سفارش‌ها
 </button>
 
@@ -2267,6 +2423,15 @@ value="🛍️"
 
 <script>
 
+function escapeHtmlClient(value) {
+  return String(value ?? "")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
 async function checkAdmin() {
 
   try {
@@ -2309,19 +2474,13 @@ function showAdmin() {
 async function adminLogin() {
 
   const username =
-    document.getElementById(
-      "adminUsername"
-    ).value;
+    document.getElementById("adminUsername").value;
 
   const password =
-    document.getElementById(
-      "adminPassword"
-    ).value;
+    document.getElementById("adminPassword").value;
 
   const message =
-    document.getElementById(
-      "loginMessage"
-    );
+    document.getElementById("loginMessage");
 
   const response =
     await fetch("/api/admin/login", {
@@ -2336,7 +2495,6 @@ async function adminLogin() {
         username,
         password
       })
-
     });
 
   const data =
@@ -2368,10 +2526,6 @@ async function adminLogout() {
   location.reload();
 }
 
-
-// ============================================================
-// PRODUCTS
-// ============================================================
 
 async function loadProducts() {
 
@@ -2414,17 +2568,17 @@ async function loadProducts() {
         '<div class="item">' +
 
         '<strong>' +
-        escapeHtml(product.name) +
+        escapeHtmlClient(product.name) +
         '</strong>' +
 
         '<p>' +
-        escapeHtml(
+        escapeHtmlClient(
           product.description || ""
         ) +
         '</p>' +
 
         '<p>قیمت: ' +
-        escapeHtml(
+        escapeHtmlClient(
           product.price || "-"
         ) +
         '</p>' +
@@ -2446,49 +2600,34 @@ async function loadProducts() {
 async function createProduct() {
 
   const name =
-    document.getElementById(
-      "productName"
-    ).value;
+    document.getElementById("productName").value;
 
   const description =
-    document.getElementById(
-      "productDescription"
-    ).value;
+    document.getElementById("productDescription").value;
 
   const price =
-    document.getElementById(
-      "productPrice"
-    ).value;
+    document.getElementById("productPrice").value;
 
   const image =
-    document.getElementById(
-      "productImage"
-    ).value;
+    document.getElementById("productImage").value;
 
   const message =
-    document.getElementById(
-      "productMessage"
-    );
+    document.getElementById("productMessage");
 
   const response =
     await fetch(
       "/api/admin/products",
       {
-
         method:"POST",
-
         headers:{
-          "Content-Type":
-            "application/json"
+          "Content-Type":"application/json"
         },
-
         body:JSON.stringify({
           name,
           description,
           price,
           image
         })
-
       }
     );
 
@@ -2502,21 +2641,10 @@ async function createProduct() {
 
   if (data.ok) {
 
-    document.getElementById(
-      "productName"
-    ).value = "";
-
-    document.getElementById(
-      "productDescription"
-    ).value = "";
-
-    document.getElementById(
-      "productPrice"
-    ).value = "";
-
-    document.getElementById(
-      "productImage"
-    ).value = "🛍️";
+    document.getElementById("productName").value = "";
+    document.getElementById("productDescription").value = "";
+    document.getElementById("productPrice").value = "";
+    document.getElementById("productImage").value = "🛍️";
 
     await loadProducts();
   }
@@ -2537,18 +2665,13 @@ async function deleteProduct(id) {
     await fetch(
       "/api/admin/products",
       {
-
         method:"DELETE",
-
         headers:{
-          "Content-Type":
-            "application/json"
+          "Content-Type":"application/json"
         },
-
         body:JSON.stringify({
           id
         })
-
       }
     );
 
@@ -2566,10 +2689,6 @@ async function deleteProduct(id) {
   }
 }
 
-
-// ============================================================
-// ORDERS
-// ============================================================
 
 async function loadOrders() {
 
@@ -2640,36 +2759,36 @@ async function loadOrders() {
         '<br>' +
 
         'مشتری: ' +
-        escapeHtml(order.username) +
+        escapeHtmlClient(order.username) +
 
         '<br>' +
 
         'ایمیل: ' +
-        escapeHtml(order.email) +
+        escapeHtmlClient(order.email) +
 
         '<br>' +
 
         'محصول: ' +
-        escapeHtml(order.product_name) +
+        escapeHtmlClient(order.product_name) +
 
         '<br>' +
 
         'قیمت: ' +
-        escapeHtml(
+        escapeHtmlClient(
           order.product_price || "-"
         ) +
 
         '<br>' +
 
         'تاریخ: ' +
-        escapeHtml(order.created_at) +
+        escapeHtmlClient(order.created_at) +
 
         '<br>' +
 
         'وضعیت فعلی: ' +
 
         '<span class="badge">' +
-        escapeHtml(order.status) +
+        escapeHtmlClient(order.status) +
         '</span>' +
 
         '</div>' +
@@ -2729,19 +2848,14 @@ async function updateOrderStatus(orderId) {
     await fetch(
       "/api/admin/orders/status",
       {
-
         method:"POST",
-
         headers:{
-          "Content-Type":
-            "application/json"
+          "Content-Type":"application/json"
         },
-
         body:JSON.stringify({
           order_id:orderId,
           status
         })
-
       }
     );
 
@@ -2771,7 +2885,6 @@ checkAdmin();
 </script>
 
 </body>
-
 </html>
 `;
 }
@@ -2789,42 +2902,41 @@ function notFoundPage() {
 <head>
 
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<meta name="viewport"
-content="width=device-width, initial-scale=1.0">
-
-<title>
-صفحه پیدا نشد | ${STORE_NAME}
-</title>
+<title>صفحه پیدا نشد | ${STORE_NAME}</title>
 
 <style>
 
 body {
   margin:0;
-  background:#f5f7fb;
+  background:#f5f7ff;
   font-family:Tahoma,Arial,sans-serif;
+  color:#172033;
 }
 
 .container {
   max-width:700px;
-  margin:100px auto;
-  padding:30px;
+  margin:90px auto;
+  padding:20px;
   text-align:center;
 }
 
 .card {
   background:white;
   padding:40px;
-  border-radius:20px;
+  border-radius:24px;
+  border:1px solid #e7e9f2;
+  box-shadow:0 12px 35px rgba(31,41,55,.07);
 }
 
 a {
   display:inline-block;
   margin-top:20px;
-  background:#111827;
+  background:#5758ed;
   color:white;
   padding:12px 18px;
-  border-radius:10px;
+  border-radius:11px;
   text-decoration:none;
 }
 
@@ -2838,9 +2950,7 @@ a {
 
 <div class="card">
 
-<h1>
-404
-</h1>
+<h1>404</h1>
 
 <h2>
 صفحه پیدا نشد
