@@ -280,6 +280,7 @@ async function hashPassword(password) {
 
 function randomToken() {
   const bytes = new Uint8Array(32);
+
   crypto.getRandomValues(bytes);
 
   return [...bytes]
@@ -293,12 +294,15 @@ function randomToken() {
 // ============================================================
 
 function getCookie(request, name) {
-  const cookieHeader = request.headers.get("Cookie") || "";
+  const cookieHeader =
+    request.headers.get("Cookie") || "";
 
-  const cookies = cookieHeader.split(";");
+  const cookies =
+    cookieHeader.split(";");
 
   for (const cookie of cookies) {
-    const [key, ...rest] = cookie.trim().split("=");
+    const [key, ...rest] =
+      cookie.trim().split("=");
 
     if (key === name) {
       return rest.join("=");
@@ -321,9 +325,16 @@ function cookieHeader(name, value, maxAge) {
 async function registerUser(request, env) {
   const body = await request.json();
 
-  const username = String(body.username || "").trim();
-  const email = String(body.email || "").trim().toLowerCase();
-  const password = String(body.password || "");
+  const username =
+    String(body.username || "").trim();
+
+  const email =
+    String(body.email || "")
+      .trim()
+      .toLowerCase();
+
+  const password =
+    String(body.password || "");
 
   if (!username || !email || !password) {
     return json({
@@ -351,7 +362,10 @@ async function registerUser(request, env) {
     FROM users
     WHERE username = ? OR email = ?
     LIMIT 1
-  `).bind(username, email).first();
+  `).bind(
+    username,
+    email
+  ).first();
 
   if (exists) {
     return json({
@@ -360,7 +374,8 @@ async function registerUser(request, env) {
     }, 400);
   }
 
-  const passwordHash = await hashPassword(password);
+  const passwordHash =
+    await hashPassword(password);
 
   await env.DB.prepare(`
     INSERT INTO users (
@@ -389,11 +404,15 @@ async function registerUser(request, env) {
 async function loginUser(request, env) {
   const body = await request.json();
 
-  const identity = String(
-    body.username || body.email || ""
-  ).trim();
+  const identity =
+    String(
+      body.username ||
+      body.email ||
+      ""
+    ).trim();
 
-  const password = String(body.password || "");
+  const password =
+    String(body.password || "");
 
   if (!identity || !password) {
     return json({
@@ -402,23 +421,25 @@ async function loginUser(request, env) {
     }, 400);
   }
 
-  const passwordHash = await hashPassword(password);
+  const passwordHash =
+    await hashPassword(password);
 
-  const user = await env.DB.prepare(`
-    SELECT
-      id,
-      username,
-      email
-    FROM users
-    WHERE
-      (username = ? OR email = ?)
-      AND password_hash = ?
-    LIMIT 1
-  `).bind(
-    identity,
-    identity.toLowerCase(),
-    passwordHash
-  ).first();
+  const user =
+    await env.DB.prepare(`
+      SELECT
+        id,
+        username,
+        email
+      FROM users
+      WHERE
+        (username = ? OR email = ?)
+        AND password_hash = ?
+      LIMIT 1
+    `).bind(
+      identity,
+      identity.toLowerCase(),
+      passwordHash
+    ).first();
 
   if (!user) {
     return json({
@@ -427,7 +448,8 @@ async function loginUser(request, env) {
     }, 401);
   }
 
-  const token = randomToken();
+  const token =
+    randomToken();
 
   await env.DB.prepare(`
     INSERT INTO sessions (
@@ -454,12 +476,15 @@ async function loginUser(request, env) {
     {
       status: 200,
       headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "Set-Cookie": cookieHeader(
-          "dm_session",
-          token,
-          60 * 60 * 24 * 30
-        )
+        "Content-Type":
+          "application/json; charset=utf-8",
+
+        "Set-Cookie":
+          cookieHeader(
+            "dm_session",
+            token,
+            60 * 60 * 24 * 30
+          )
       }
     }
   );
@@ -471,7 +496,8 @@ async function loginUser(request, env) {
 // ============================================================
 
 async function logoutUser(request, env) {
-  const token = getCookie(request, "dm_session");
+  const token =
+    getCookie(request, "dm_session");
 
   if (token) {
     await env.DB.prepare(`
@@ -488,12 +514,15 @@ async function logoutUser(request, env) {
     {
       status: 200,
       headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "Set-Cookie": cookieHeader(
-          "dm_session",
-          "",
-          0
-        )
+        "Content-Type":
+          "application/json; charset=utf-8",
+
+        "Set-Cookie":
+          cookieHeader(
+            "dm_session",
+            "",
+            0
+          )
       }
     }
   );
@@ -505,25 +534,27 @@ async function logoutUser(request, env) {
 // ============================================================
 
 async function currentUser(request, env) {
-  const token = getCookie(request, "dm_session");
+  const token =
+    getCookie(request, "dm_session");
 
   if (!token) {
     return null;
   }
 
-  const user = await env.DB.prepare(`
-    SELECT
-      users.id,
-      users.username,
-      users.email
-    FROM sessions
-    JOIN users
-      ON users.id = sessions.user_id
-    WHERE
-      sessions.token = ?
-      AND sessions.expires_at > datetime('now')
-    LIMIT 1
-  `).bind(token).first();
+  const user =
+    await env.DB.prepare(`
+      SELECT
+        users.id,
+        users.username,
+        users.email
+      FROM sessions
+      JOIN users
+        ON users.id = sessions.user_id
+      WHERE
+        sessions.token = ?
+        AND sessions.expires_at > datetime('now')
+      LIMIT 1
+    `).bind(token).first();
 
   return user || null;
 }
@@ -534,7 +565,8 @@ async function currentUser(request, env) {
 // ============================================================
 
 async function getUserOrders(request, env) {
-  const user = await currentUser(request, env);
+  const user =
+    await currentUser(request, env);
 
   if (!user) {
     return json({
@@ -543,7 +575,8 @@ async function getUserOrders(request, env) {
     }, 401);
   }
 
-  const orders = await userOrders(env, user.id);
+  const orders =
+    await userOrders(env, user.id);
 
   return json({
     ok: true,
@@ -553,21 +586,27 @@ async function getUserOrders(request, env) {
 
 
 async function userOrders(env, userId) {
-  const result = await env.DB.prepare(`
-    SELECT
-      orders.id,
-      orders.status,
-      orders.created_at,
-      products.id AS product_id,
-      products.name AS product_name,
-      products.price AS product_price,
-      products.image AS product_image
-    FROM orders
-    JOIN products
-      ON products.id = orders.product_id
-    WHERE orders.user_id = ?
-    ORDER BY orders.id DESC
-  `).bind(userId).all();
+  const result =
+    await env.DB.prepare(`
+      SELECT
+        orders.id,
+        orders.status,
+        orders.created_at,
+
+        products.id AS product_id,
+        products.name AS product_name,
+        products.price AS product_price,
+        products.image AS product_image
+
+      FROM orders
+
+      JOIN products
+        ON products.id = orders.product_id
+
+      WHERE orders.user_id = ?
+
+      ORDER BY orders.id DESC
+    `).bind(userId).all();
 
   return result.results || [];
 }
@@ -578,7 +617,8 @@ async function userOrders(env, userId) {
 // ============================================================
 
 async function createOrder(request, env) {
-  const user = await currentUser(request, env);
+  const user =
+    await currentUser(request, env);
 
   if (!user) {
     return json({
@@ -587,9 +627,11 @@ async function createOrder(request, env) {
     }, 401);
   }
 
-  const body = await request.json();
+  const body =
+    await request.json();
 
-  const productId = Number(body.product_id);
+  const productId =
+    Number(body.product_id);
 
   if (!productId) {
     return json({
@@ -598,7 +640,8 @@ async function createOrder(request, env) {
     }, 400);
   }
 
-  const product = await getProduct(env, productId);
+  const product =
+    await getProduct(env, productId);
 
   if (!product) {
     return json({
@@ -607,22 +650,24 @@ async function createOrder(request, env) {
     }, 404);
   }
 
-  const result = await env.DB.prepare(`
-    INSERT INTO orders (
-      user_id,
-      product_id,
-      status
-    )
-    VALUES (?, ?, 'pending')
-  `).bind(
-    user.id,
-    productId
-  ).run();
+  const result =
+    await env.DB.prepare(`
+      INSERT INTO orders (
+        user_id,
+        product_id,
+        status
+      )
+      VALUES (?, ?, 'pending')
+    `).bind(
+      user.id,
+      productId
+    ).run();
 
   return json({
     ok: true,
     message: "سفارش با موفقیت ثبت شد.",
-    order_id: result.meta?.last_row_id || null
+    order_id:
+      result.meta?.last_row_id || null
   });
 }
 
@@ -635,17 +680,22 @@ async function adminLogin(request, env) {
   if (!env.ADMIN_PASSWORD) {
     return json({
       ok: false,
-      error: "ADMIN_PASSWORD در تنظیمات Worker تعریف نشده است."
+      error:
+        "ADMIN_PASSWORD در تنظیمات Worker تعریف نشده است."
     }, 500);
   }
 
-  const body = await request.json();
+  const body =
+    await request.json();
 
-  const username = String(
-    body.username || DEFAULT_ADMIN_USERNAME
-  ).trim();
+  const username =
+    String(
+      body.username ||
+      DEFAULT_ADMIN_USERNAME
+    ).trim();
 
-  const password = String(body.password || "");
+  const password =
+    String(body.password || "");
 
   if (
     username !== DEFAULT_ADMIN_USERNAME ||
@@ -657,7 +707,8 @@ async function adminLogin(request, env) {
     }, 401);
   }
 
-  const token = randomToken();
+  const token =
+    randomToken();
 
   await env.DB.prepare(`
     INSERT INTO admin_sessions (
@@ -683,12 +734,15 @@ async function adminLogin(request, env) {
     {
       status: 200,
       headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "Set-Cookie": cookieHeader(
-          "dm_admin",
-          token,
-          60 * 60 * 24 * 7
-        )
+        "Content-Type":
+          "application/json; charset=utf-8",
+
+        "Set-Cookie":
+          cookieHeader(
+            "dm_admin",
+            token,
+            60 * 60 * 24 * 7
+          )
       }
     }
   );
@@ -700,7 +754,8 @@ async function adminLogin(request, env) {
 // ============================================================
 
 async function adminLogout(request, env) {
-  const token = getCookie(request, "dm_admin");
+  const token =
+    getCookie(request, "dm_admin");
 
   if (token) {
     await env.DB.prepare(`
@@ -717,12 +772,15 @@ async function adminLogout(request, env) {
     {
       status: 200,
       headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "Set-Cookie": cookieHeader(
-          "dm_admin",
-          "",
-          0
-        )
+        "Content-Type":
+          "application/json; charset=utf-8",
+
+        "Set-Cookie":
+          cookieHeader(
+            "dm_admin",
+            "",
+            0
+          )
       }
     }
   );
@@ -734,20 +792,22 @@ async function adminLogout(request, env) {
 // ============================================================
 
 async function isAdmin(request, env) {
-  const token = getCookie(request, "dm_admin");
+  const token =
+    getCookie(request, "dm_admin");
 
   if (!token) {
     return false;
   }
 
-  const admin = await env.DB.prepare(`
-    SELECT id
-    FROM admin_sessions
-    WHERE
-      token = ?
-      AND expires_at > datetime('now')
-    LIMIT 1
-  `).bind(token).first();
+  const admin =
+    await env.DB.prepare(`
+      SELECT id
+      FROM admin_sessions
+      WHERE
+        token = ?
+        AND expires_at > datetime('now')
+      LIMIT 1
+    `).bind(token).first();
 
   return !!admin;
 }
@@ -767,7 +827,8 @@ async function adminProducts(request, env) {
 
   return json({
     ok: true,
-    products: await getProducts(env)
+    products:
+      await getProducts(env)
   });
 }
 
@@ -780,12 +841,22 @@ async function adminCreateProduct(request, env) {
     }, 401);
   }
 
-  const body = await request.json();
+  const body =
+    await request.json();
 
-  const name = String(body.name || "").trim();
-  const description = String(body.description || "").trim();
-  const price = String(body.price || "").trim();
-  const image = String(body.image || "🛍️").trim();
+  const name =
+    String(body.name || "").trim();
+
+  const description =
+    String(body.description || "").trim();
+
+  const price =
+    String(body.price || "").trim();
+
+  const image =
+    String(
+      body.image || "🛍️"
+    ).trim();
 
   if (!name) {
     return json({
@@ -824,9 +895,11 @@ async function adminDeleteProduct(request, env) {
     }, 401);
   }
 
-  const body = await request.json();
+  const body =
+    await request.json();
 
-  const productId = Number(body.id);
+  const productId =
+    Number(body.id);
 
   if (!productId) {
     return json({
@@ -835,17 +908,19 @@ async function adminDeleteProduct(request, env) {
     }, 400);
   }
 
-  const used = await env.DB.prepare(`
-    SELECT id
-    FROM orders
-    WHERE product_id = ?
-    LIMIT 1
-  `).bind(productId).first();
+  const used =
+    await env.DB.prepare(`
+      SELECT id
+      FROM orders
+      WHERE product_id = ?
+      LIMIT 1
+    `).bind(productId).first();
 
   if (used) {
     return json({
       ok: false,
-      error: "این محصول در سفارش‌ها استفاده شده و حذف آن ممکن نیست."
+      error:
+        "این محصول در سفارش‌ها استفاده شده و حذف آن ممکن نیست."
     }, 400);
   }
 
@@ -873,35 +948,37 @@ async function adminOrders(request, env) {
     }, 401);
   }
 
-  const result = await env.DB.prepare(`
-    SELECT
-      orders.id,
-      orders.status,
-      orders.created_at,
+  const result =
+    await env.DB.prepare(`
+      SELECT
+        orders.id,
+        orders.status,
+        orders.created_at,
 
-      users.id AS user_id,
-      users.username,
-      users.email,
+        users.id AS user_id,
+        users.username,
+        users.email,
 
-      products.id AS product_id,
-      products.name AS product_name,
-      products.price AS product_price,
-      products.image AS product_image
+        products.id AS product_id,
+        products.name AS product_name,
+        products.price AS product_price,
+        products.image AS product_image
 
-    FROM orders
+      FROM orders
 
-    JOIN users
-      ON users.id = orders.user_id
+      JOIN users
+        ON users.id = orders.user_id
 
-    JOIN products
-      ON products.id = orders.product_id
+      JOIN products
+        ON products.id = orders.product_id
 
-    ORDER BY orders.id DESC
-  `).all();
+      ORDER BY orders.id DESC
+    `).all();
 
   return json({
     ok: true,
-    orders: result.results || []
+    orders:
+      result.results || []
   });
 }
 
@@ -914,10 +991,16 @@ async function adminUpdateOrderStatus(request, env) {
     }, 401);
   }
 
-  const body = await request.json();
+  const body =
+    await request.json();
 
-  const orderId = Number(body.order_id);
-  const status = String(body.status || "").trim();
+  const orderId =
+    Number(body.order_id);
+
+  const status =
+    String(
+      body.status || ""
+    ).trim();
 
   const allowedStatuses = [
     "pending",
@@ -940,12 +1023,13 @@ async function adminUpdateOrderStatus(request, env) {
     }, 400);
   }
 
-  const order = await env.DB.prepare(`
-    SELECT id
-    FROM orders
-    WHERE id = ?
-    LIMIT 1
-  `).bind(orderId).first();
+  const order =
+    await env.DB.prepare(`
+      SELECT id
+      FROM orders
+      WHERE id = ?
+      LIMIT 1
+    `).bind(orderId).first();
 
   if (!order) {
     return json({
@@ -980,9 +1064,13 @@ function homePage() {
   return `
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
+
 <head>
+
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<meta name="viewport"
+content="width=device-width, initial-scale=1.0">
 
 <title>${STORE_NAME} | ${STORE_EN}</title>
 
@@ -1025,6 +1113,13 @@ header {
   font-weight: bold;
   color: #111827;
   text-decoration: none;
+}
+
+.logo small {
+  display: block;
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 3px;
 }
 
 .nav-links {
@@ -1142,145 +1237,153 @@ footer {
 }
 
 </style>
+
 </head>
 
 <body>
 
 <header>
-  <div class="nav">
 
-    <a class="logo" href="/">
-      ${STORE_NAME}
-      <small>${STORE_EN}</small>
-    </a>
+<div class="nav">
 
-    <div class="nav-links">
-      <a href="/">خانه</a>
-      <a href="/account">حساب من</a>
-      <a href="/admin">مدیریت</a>
-    </div>
+<a class="logo" href="/">
+${STORE_NAME}
+<small>${STORE_EN}</small>
+</a>
 
-  </div>
+<div class="nav-links">
+<a href="/">خانه</a>
+<a href="/account">حساب من</a>
+<a href="/admin">مدیریت</a>
+</div>
+
+</div>
+
 </header>
 
 <main class="container">
 
-  <section class="hero">
+<section class="hero">
 
-    <h1>${STORE_NAME}</h1>
+<h1>${STORE_NAME}</h1>
 
-    <p>
-      فروشگاه دیجیتال ${STORE_EN}
-      برای ارائه محصولات و ابزارهای دیجیتال.
-    </p>
+<p>
+فروشگاه دیجیتال ${STORE_EN}
+برای ارائه محصولات و ابزارهای دیجیتال.
+</p>
 
-    <a class="btn btn-light" href="#products">
-      مشاهده محصولات
-    </a>
+<a class="btn btn-light" href="#products">
+مشاهده محصولات
+</a>
 
-  </section>
+</section>
 
-  <h2 class="section-title" id="products">
-    محصولات
-  </h2>
+<h2 class="section-title">
+محصولات
+</h2>
 
-  <div id="products" class="products">
-    <div class="loading">
-      در حال دریافت محصولات...
-    </div>
-  </div>
+<div id="products" class="products">
+
+<div class="loading">
+در حال دریافت محصولات...
+</div>
+
+</div>
 
 </main>
 
 <footer>
-  ${STORE_NAME} — ${STORE_EN}
+${STORE_NAME} — ${STORE_EN}
 </footer>
 
 <script>
 
 async function loadProducts() {
 
-  const box = document.getElementById("products");
+  const box =
+    document.getElementById("products");
 
   try {
 
-    const response = await fetch("/api/products");
+    const response =
+      await fetch("/api/products");
 
-    const data = await response.json();
+    const data =
+      await response.json();
 
     if (!data.ok) {
-      throw new Error(data.error || "خطا");
+      throw new Error(
+        data.error || "خطا"
+      );
     }
 
-    if (!data.products || data.products.length === 0) {
+    if (
+      !data.products ||
+      data.products.length === 0
+    ) {
 
-      box.innerHTML = `
-        <div class="card">
-          هنوز محصولی ثبت نشده است.
-        </div>
-      `;
+      box.innerHTML =
+        '<div class="card">' +
+        'هنوز محصولی ثبت نشده است.' +
+        '</div>';
 
       return;
     }
 
-    box.innerHTML = data.products.map(product => `
+    box.innerHTML =
+      data.products.map(function(product) {
 
-      <div class="card">
+        return (
+          '<div class="card">' +
 
-        <div class="product-image">
-          ${escapeHtml(product.image || "🛍️")}
-        </div>
+          '<div class="product-image">' +
+          escapeHtml(
+            product.image || "🛍️"
+          ) +
+          '</div>' +
 
-        <h3>
-          ${escapeHtml(product.name)}
-        </h3>
+          '<h3>' +
+          escapeHtml(product.name) +
+          '</h3>' +
 
-        <p>
-          ${escapeHtml(product.description || "")}
-        </p>
+          '<p>' +
+          escapeHtml(
+            product.description || ""
+          ) +
+          '</p>' +
 
-        <div class="price">
-          ${escapeHtml(product.price || "تماس بگیرید")}
-        </div>
+          '<div class="price">' +
+          escapeHtml(
+            product.price || "تماس بگیرید"
+          ) +
+          '</div>' +
 
-        <a
-          class="btn"
-          href="/product/${product.id}"
-        >
-          مشاهده و سفارش
-        </a>
+          '<a class="btn" href="/product/' +
+          product.id +
+          '">' +
+          'مشاهده و سفارش' +
+          '</a>' +
 
-      </div>
+          '</div>'
+        );
 
-    `).join("");
+      }).join("");
 
   } catch (error) {
 
-    box.innerHTML = `
-      <div class="card">
-        دریافت محصولات انجام نشد.
-      </div>
-    `;
+    box.innerHTML =
+      '<div class="card">' +
+      'دریافت محصولات انجام نشد.' +
+      '</div>';
   }
 }
-
-
-function escapeHtml(value) {
-
-  return String(value)
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
-}
-
 
 loadProducts();
 
 </script>
 
 </body>
+
 </html>
 `;
 }
@@ -1302,7 +1405,9 @@ function productPage(product) {
 <meta name="viewport"
 content="width=device-width, initial-scale=1.0">
 
-<title>${escapeHtml(product.name)} | ${STORE_NAME}</title>
+<title>
+${escapeHtml(product.name)} | ${STORE_NAME}
+</title>
 
 <style>
 
@@ -1413,27 +1518,31 @@ ${escapeHtml(product.price || "تماس بگیرید")}
 
 async function buyProduct() {
 
-  const message = document.getElementById("message");
+  const message =
+    document.getElementById("message");
 
-  message.textContent = "در حال ثبت سفارش...";
+  message.textContent =
+    "در حال ثبت سفارش...";
 
   try {
 
-    const response = await fetch("/api/orders", {
+    const response =
+      await fetch("/api/orders", {
 
-      method:"POST",
+        method:"POST",
 
-      headers:{
-        "Content-Type":"application/json"
-      },
+        headers:{
+          "Content-Type":"application/json"
+        },
 
-      body:JSON.stringify({
-        product_id:${Number(product.id)}
-      })
+        body:JSON.stringify({
+          product_id:${Number(product.id)}
+        })
 
-    });
+      });
 
-    const data = await response.json();
+    const data =
+      await response.json();
 
     if (response.status === 401) {
 
@@ -1446,7 +1555,8 @@ async function buyProduct() {
     if (!data.ok) {
 
       message.textContent =
-        data.error || "ثبت سفارش انجام نشد.";
+        data.error ||
+        "ثبت سفارش انجام نشد.";
 
       return;
     }
@@ -1465,6 +1575,7 @@ async function buyProduct() {
 </script>
 
 </body>
+
 </html>
 `;
 }
@@ -1486,7 +1597,9 @@ function accountPage() {
 <meta name="viewport"
 content="width=device-width, initial-scale=1.0">
 
-<title>حساب کاربری | ${STORE_NAME}</title>
+<title>
+حساب کاربری | ${STORE_NAME}
+</title>
 
 <style>
 
@@ -1650,7 +1763,6 @@ onclick="logout()"
 
 </div>
 
-
 <div class="card">
 
 <h2>
@@ -1669,7 +1781,6 @@ onclick="logout()"
 
 </div>
 
-
 <script>
 
 async function loadMe() {
@@ -1682,30 +1793,23 @@ async function loadMe() {
 
   if (data.user) {
 
-    document.getElementById("auth").style.display =
-      "none";
+    document.getElementById("auth")
+      .style.display = "none";
 
-    document.getElementById("userArea").style.display =
-      "block";
+    document.getElementById("userArea")
+      .style.display = "block";
 
-    document.getElementById("userInfo").innerHTML = `
+    document.getElementById("userInfo")
+      .innerHTML =
+        '<p>نام کاربری: <strong>' +
+        escapeHtml(data.user.username) +
+        '</strong></p>' +
 
-      <p>
-        نام کاربری:
-        <strong>
-          ${escapeHtml(data.user.username)}
-        </strong>
-      </p>
-
-      <p>
-        ایمیل:
-        ${escapeHtml(data.user.email)}
-      </p>
-
-    `;
+        '<p>ایمیل: ' +
+        escapeHtml(data.user.email) +
+        '</p>';
 
     loadOrders();
-
   }
 }
 
@@ -1713,16 +1817,24 @@ async function loadMe() {
 async function register() {
 
   const username =
-    document.getElementById("registerUsername").value;
+    document.getElementById(
+      "registerUsername"
+    ).value;
 
   const email =
-    document.getElementById("registerEmail").value;
+    document.getElementById(
+      "registerEmail"
+    ).value;
 
   const password =
-    document.getElementById("registerPassword").value;
+    document.getElementById(
+      "registerPassword"
+    ).value;
 
   const message =
-    document.getElementById("authMessage");
+    document.getElementById(
+      "authMessage"
+    );
 
   const response =
     await fetch("/api/register", {
@@ -1748,20 +1860,25 @@ async function register() {
     data.ok
       ? "ثبت‌نام موفق بود. اکنون وارد شوید."
       : data.error;
-
 }
 
 
 async function login() {
 
   const identity =
-    document.getElementById("loginIdentity").value;
+    document.getElementById(
+      "loginIdentity"
+    ).value;
 
   const password =
-    document.getElementById("loginPassword").value;
+    document.getElementById(
+      "loginPassword"
+    ).value;
 
   const message =
-    document.getElementById("authMessage");
+    document.getElementById(
+      "authMessage"
+    );
 
   const response =
     await fetch("/api/login", {
@@ -1794,7 +1911,6 @@ async function login() {
     "ورود موفق بود.";
 
   await loadMe();
-
 }
 
 
@@ -1805,7 +1921,6 @@ async function logout() {
   });
 
   location.reload();
-
 }
 
 
@@ -1837,46 +1952,40 @@ async function loadOrders() {
   }
 
   box.innerHTML =
-    `<div class="orders">` +
+    '<div class="orders">' +
 
-    data.orders.map(order => `
+    data.orders.map(function(order) {
 
-      <div class="order">
+      return (
+        '<div class="order">' +
 
-        <strong>
-          سفارش #${order.id}
-        </strong>
+        '<strong>سفارش #' +
+        order.id +
+        '</strong>' +
 
-        <p>
-          ${escapeHtml(order.product_name)}
-        </p>
+        '<p>' +
+        escapeHtml(
+          order.product_name
+        ) +
+        '</p>' +
 
-        <p>
-          قیمت:
-          ${escapeHtml(order.product_price || "-")}
-        </p>
+        '<p>قیمت: ' +
+        escapeHtml(
+          order.product_price || "-"
+        ) +
+        '</p>' +
 
-        <span class="status">
-          وضعیت:
-          ${escapeHtml(order.status)}
-        </span>
+        '<span class="status">' +
+        'وضعیت: ' +
+        escapeHtml(order.status) +
+        '</span>' +
 
-      </div>
+        '</div>'
+      );
 
-    `).join("") +
+    }).join("") +
 
-    `</div>`;
-}
-
-
-function escapeHtml(value) {
-
-  return String(value)
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
+    '</div>';
 }
 
 
@@ -1885,6 +1994,7 @@ loadMe();
 </script>
 
 </body>
+
 </html>
 `;
 }
@@ -1906,7 +2016,9 @@ function adminPage() {
 <meta name="viewport"
 content="width=device-width, initial-scale=1.0">
 
-<title>مدیریت | ${STORE_NAME}</title>
+<title>
+مدیریت | ${STORE_NAME}
+</title>
 
 <style>
 
@@ -2053,7 +2165,6 @@ placeholder="رمز مدیریت"
 
 </div>
 
-
 <div id="adminArea" class="hidden">
 
 <div class="row">
@@ -2085,9 +2196,7 @@ onclick="loadOrders()"
 
 </div>
 
-
 <div id="dashboard" class="hidden">
-
 
 <div class="card">
 
@@ -2124,7 +2233,6 @@ value="🛍️"
 
 </div>
 
-
 <div class="card">
 
 <h2>
@@ -2136,7 +2244,6 @@ value="🛍️"
 </div>
 
 </div>
-
 
 <div class="card">
 
@@ -2150,7 +2257,6 @@ value="🛍️"
 
 </div>
 
-
 </div>
 
 <a href="/">
@@ -2158,7 +2264,6 @@ value="🛍️"
 </a>
 
 </div>
-
 
 <script>
 
@@ -2179,11 +2284,9 @@ async function checkAdmin() {
       await loadProducts();
 
       await loadOrders();
-
     }
 
   } catch (error) {}
-
 }
 
 
@@ -2206,13 +2309,19 @@ function showAdmin() {
 async function adminLogin() {
 
   const username =
-    document.getElementById("adminUsername").value;
+    document.getElementById(
+      "adminUsername"
+    ).value;
 
   const password =
-    document.getElementById("adminPassword").value;
+    document.getElementById(
+      "adminPassword"
+    ).value;
 
   const message =
-    document.getElementById("loginMessage");
+    document.getElementById(
+      "loginMessage"
+    );
 
   const response =
     await fetch("/api/admin/login", {
@@ -2236,7 +2345,8 @@ async function adminLogin() {
   if (!data.ok) {
 
     message.textContent =
-      data.error || "ورود ناموفق بود.";
+      data.error ||
+      "ورود ناموفق بود.";
 
     return;
   }
@@ -2246,7 +2356,6 @@ async function adminLogin() {
   await loadProducts();
 
   await loadOrders();
-
 }
 
 
@@ -2257,7 +2366,6 @@ async function adminLogout() {
   });
 
   location.reload();
-
 }
 
 
@@ -2300,70 +2408,89 @@ async function loadProducts() {
   }
 
   box.innerHTML =
-    data.products.map(product => `
+    data.products.map(function(product) {
 
-      <div class="item">
+      return (
+        '<div class="item">' +
 
-        <strong>
-          ${escapeHtml(product.name)}
-        </strong>
+        '<strong>' +
+        escapeHtml(product.name) +
+        '</strong>' +
 
-        <p>
-          ${escapeHtml(product.description || "")}
-        </p>
+        '<p>' +
+        escapeHtml(
+          product.description || ""
+        ) +
+        '</p>' +
 
-        <p>
-          قیمت:
-          ${escapeHtml(product.price || "-")}
-        </p>
+        '<p>قیمت: ' +
+        escapeHtml(
+          product.price || "-"
+        ) +
+        '</p>' +
 
-        <button
-          class="danger"
-          onclick="deleteProduct(${product.id})"
-        >
-          حذف محصول
-        </button>
+        '<button class="danger" ' +
+        'onclick="deleteProduct(' +
+        product.id +
+        ')">' +
+        'حذف محصول' +
+        '</button>' +
 
-      </div>
+        '</div>'
+      );
 
-    `).join("");
+    }).join("");
 }
 
 
 async function createProduct() {
 
   const name =
-    document.getElementById("productName").value;
+    document.getElementById(
+      "productName"
+    ).value;
 
   const description =
-    document.getElementById("productDescription").value;
+    document.getElementById(
+      "productDescription"
+    ).value;
 
   const price =
-    document.getElementById("productPrice").value;
+    document.getElementById(
+      "productPrice"
+    ).value;
 
   const image =
-    document.getElementById("productImage").value;
+    document.getElementById(
+      "productImage"
+    ).value;
 
   const message =
-    document.getElementById("productMessage");
+    document.getElementById(
+      "productMessage"
+    );
 
   const response =
-    await fetch("/api/admin/products", {
+    await fetch(
+      "/api/admin/products",
+      {
 
-      method:"POST",
+        method:"POST",
 
-      headers:{
-        "Content-Type":"application/json"
-      },
+        headers:{
+          "Content-Type":
+            "application/json"
+        },
 
-      body:JSON.stringify({
-        name,
-        description,
-        price,
-        image
-      })
+        body:JSON.stringify({
+          name,
+          description,
+          price,
+          image
+        })
 
-    });
+      }
+    );
 
   const data =
     await response.json();
@@ -2375,10 +2502,21 @@ async function createProduct() {
 
   if (data.ok) {
 
-    document.getElementById("productName").value = "";
-    document.getElementById("productDescription").value = "";
-    document.getElementById("productPrice").value = "";
-    document.getElementById("productImage").value = "🛍️";
+    document.getElementById(
+      "productName"
+    ).value = "";
+
+    document.getElementById(
+      "productDescription"
+    ).value = "";
+
+    document.getElementById(
+      "productPrice"
+    ).value = "";
+
+    document.getElementById(
+      "productImage"
+    ).value = "🛍️";
 
     await loadProducts();
   }
@@ -2387,24 +2525,32 @@ async function createProduct() {
 
 async function deleteProduct(id) {
 
-  if (!confirm("آیا از حذف این محصول مطمئن هستید؟")) {
+  if (
+    !confirm(
+      "آیا از حذف این محصول مطمئن هستید؟"
+    )
+  ) {
     return;
   }
 
   const response =
-    await fetch("/api/admin/products", {
+    await fetch(
+      "/api/admin/products",
+      {
 
-      method:"DELETE",
+        method:"DELETE",
 
-      headers:{
-        "Content-Type":"application/json"
-      },
+        headers:{
+          "Content-Type":
+            "application/json"
+        },
 
-      body:JSON.stringify({
-        id
-      })
+        body:JSON.stringify({
+          id
+        })
 
-    });
+      }
+    );
 
   const data =
     await response.json();
@@ -2460,99 +2606,112 @@ async function loadOrders() {
   }
 
   box.innerHTML =
-    data.orders.map(order => `
+    data.orders.map(function(order) {
 
-      <div class="item">
+      const pendingSelected =
+        order.status === "pending"
+          ? "selected"
+          : "";
 
-        <div class="order-info">
+      const paidSelected =
+        order.status === "paid"
+          ? "selected"
+          : "";
 
-          <strong>
-            سفارش #${order.id}
-          </strong>
+      const completedSelected =
+        order.status === "completed"
+          ? "selected"
+          : "";
 
-          <br>
+      const cancelledSelected =
+        order.status === "cancelled"
+          ? "selected"
+          : "";
 
-          مشتری:
-          ${escapeHtml(order.username)}
+      return (
+        '<div class="item">' +
 
-          <br>
+        '<div class="order-info">' +
 
-          ایمیل:
-          ${escapeHtml(order.email)}
+        '<strong>سفارش #' +
+        order.id +
+        '</strong>' +
 
-          <br>
+        '<br>' +
 
-          محصول:
-          ${escapeHtml(order.product_name)}
+        'مشتری: ' +
+        escapeHtml(order.username) +
 
-          <br>
+        '<br>' +
 
-          قیمت:
-          ${escapeHtml(order.product_price || "-")}
+        'ایمیل: ' +
+        escapeHtml(order.email) +
 
-          <br>
+        '<br>' +
 
-          تاریخ:
-          ${escapeHtml(order.created_at)}
+        'محصول: ' +
+        escapeHtml(order.product_name) +
 
-          <br>
+        '<br>' +
 
-          وضعیت فعلی:
-          <span class="badge">
-            ${escapeHtml(order.status)}
-          </span>
+        'قیمت: ' +
+        escapeHtml(
+          order.product_price || "-"
+        ) +
 
-        </div>
+        '<br>' +
 
-        <br>
+        'تاریخ: ' +
+        escapeHtml(order.created_at) +
 
-        <div class="row">
+        '<br>' +
 
-          <select
-            id="status-${order.id}"
-          >
+        'وضعیت فعلی: ' +
 
-            <option
-              value="pending"
-              ${order.status === "pending" ? "selected" : ""}
-            >
-              در انتظار
-            </option>
+        '<span class="badge">' +
+        escapeHtml(order.status) +
+        '</span>' +
 
-            <option
-              value="paid"
-              ${order.status === "paid" ? "selected" : ""}
-            >
-              پرداخت شده
-            </option>
+        '</div>' +
 
-            <option
-              value="completed"
-              ${order.status === "completed" ? "selected" : ""}
-            >
-              تکمیل شده
-            </option>
+        '<br>' +
 
-            <option
-              value="cancelled"
-              ${order.status === "cancelled" ? "selected" : ""}
-            >
-              لغو شده
-            </option>
+        '<div class="row">' +
 
-          </select>
+        '<select id="status-' +
+        order.id +
+        '">' +
 
-          <button
-            onclick="updateOrderStatus(${order.id})"
-          >
-            ذخیره وضعیت
-          </button>
+        '<option value="pending" ' +
+        pendingSelected +
+        '>در انتظار</option>' +
 
-        </div>
+        '<option value="paid" ' +
+        paidSelected +
+        '>پرداخت شده</option>' +
 
-      </div>
+        '<option value="completed" ' +
+        completedSelected +
+        '>تکمیل شده</option>' +
 
-    `).join("");
+        '<option value="cancelled" ' +
+        cancelledSelected +
+        '>لغو شده</option>' +
+
+        '</select>' +
+
+        '<button onclick="updateOrderStatus(' +
+        order.id +
+        ')">' +
+        'ذخیره وضعیت' +
+        '</button>' +
+
+        '</div>' +
+
+        '</div>'
+      );
+
+    }).join("");
 }
 
 
@@ -2567,20 +2726,24 @@ async function updateOrderStatus(orderId) {
     select.value;
 
   const response =
-    await fetch("/api/admin/orders/status", {
+    await fetch(
+      "/api/admin/orders/status",
+      {
 
-      method:"POST",
+        method:"POST",
 
-      headers:{
-        "Content-Type":"application/json"
-      },
+        headers:{
+          "Content-Type":
+            "application/json"
+        },
 
-      body:JSON.stringify({
-        order_id:orderId,
-        status
-      })
+        body:JSON.stringify({
+          order_id:orderId,
+          status
+        })
 
-    });
+      }
+    );
 
   const data =
     await response.json();
@@ -2595,20 +2758,11 @@ async function updateOrderStatus(orderId) {
     return;
   }
 
-  alert("وضعیت سفارش تغییر کرد.");
+  alert(
+    "وضعیت سفارش تغییر کرد."
+  );
 
   await loadOrders();
-}
-
-
-function escapeHtml(value) {
-
-  return String(value)
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
 }
 
 
@@ -2617,6 +2771,7 @@ checkAdmin();
 </script>
 
 </body>
+
 </html>
 `;
 }
@@ -2638,7 +2793,9 @@ function notFoundPage() {
 <meta name="viewport"
 content="width=device-width, initial-scale=1.0">
 
-<title>صفحه پیدا نشد | ${STORE_NAME}</title>
+<title>
+صفحه پیدا نشد | ${STORE_NAME}
+</title>
 
 <style>
 
@@ -2698,6 +2855,7 @@ a {
 </div>
 
 </body>
+
 </html>
 `;
 }
@@ -2718,13 +2876,16 @@ function escapeHtml(value) {
 
 
 function html(content, status = 200) {
-  return new Response(content, {
-    status,
-    headers: {
-      "Content-Type":
-        "text/html; charset=utf-8"
+  return new Response(
+    content,
+    {
+      status,
+      headers: {
+        "Content-Type":
+          "text/html; charset=utf-8"
+      }
     }
-  });
+  );
 }
 
 
@@ -2739,4 +2900,4 @@ function json(data, status = 200) {
       }
     }
   );
-}
+    }
