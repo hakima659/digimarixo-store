@@ -2450,12 +2450,6 @@ function json(data, status = 200) {
    HELPERS
 ========================================================= */
 
-/*
-  FIX PRICE
-  جلوگیری کامل از نمایش NaN / ناعدد
-  پشتیبانی از اعداد فارسی و عربی
-*/
-
 function normalizePrice(value) {
   const normalized = String(value ?? "")
     .trim()
@@ -2523,7 +2517,6 @@ function escapeJS(value) {
 
 
 function safeError(error) {
-
   if (!error) {
     return "خطای ناشناخته";
   }
@@ -2533,4 +2526,4 @@ function safeError(error) {
   }
 
   return String(error);
-     }
+         }
