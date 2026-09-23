@@ -42,7 +42,7 @@ export default {
       if (path.startsWith("/product/") && method === "GET") {
         const id = Number(path.split("/").pop());
 
-        if (!Number.isFinite(id)) {
+        if (!Number.isFinite(id) || id <= 0) {
           return html(notFoundPage(), 404);
         }
 
@@ -162,6 +162,16 @@ export default {
 
         const userId = result.meta?.last_row_id;
 
+        if (!userId) {
+          return json(
+            {
+              ok: false,
+              error: "ایجاد حساب کاربری انجام نشد."
+            },
+            500
+          );
+        }
+
         const token = randomToken();
 
         await env.DB.prepare(`
@@ -175,7 +185,9 @@ export default {
             token,
             userId,
             new Date().toISOString(),
-            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+            new Date(
+              Date.now() + 30 * 24 * 60 * 60 * 1000
+            ).toISOString()
           )
           .run();
 
@@ -186,8 +198,10 @@ export default {
           }),
           {
             headers: {
-              "Content-Type": "application/json; charset=UTF-8",
-              "Set-Cookie": cookieHeader("session", token)
+              "Content-Type":
+                "application/json; charset=UTF-8",
+              "Set-Cookie":
+                cookieHeader("session", token)
             }
           }
         );
@@ -200,14 +214,20 @@ export default {
       if (path === "/api/login" && method === "POST") {
         const body = await readJSON(request);
 
-        const login = String(body.login || "").trim().toLowerCase();
-        const password = String(body.password || "");
+        const login =
+          String(body.login || "")
+            .trim()
+            .toLowerCase();
+
+        const password =
+          String(body.password || "");
 
         if (!login || !password) {
           return json(
             {
               ok: false,
-              error: "نام کاربری/ایمیل و رمز عبور را وارد کنید."
+              error:
+                "نام کاربری/ایمیل و رمز عبور را وارد کنید."
             },
             400
           );
@@ -233,7 +253,8 @@ export default {
           );
         }
 
-        const passwordHash = await hashPassword(password);
+        const passwordHash =
+          await hashPassword(password);
 
         if (passwordHash !== user.password_hash) {
           return json(
@@ -258,7 +279,9 @@ export default {
             token,
             user.id,
             new Date().toISOString(),
-            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+            new Date(
+              Date.now() + 30 * 24 * 60 * 60 * 1000
+            ).toISOString()
           )
           .run();
 
@@ -269,8 +292,10 @@ export default {
           }),
           {
             headers: {
-              "Content-Type": "application/json; charset=UTF-8",
-              "Set-Cookie": cookieHeader("session", token)
+              "Content-Type":
+                "application/json; charset=UTF-8",
+              "Set-Cookie":
+                cookieHeader("session", token)
             }
           }
         );
@@ -281,7 +306,8 @@ export default {
       ========================= */
 
       if (path === "/api/logout" && method === "POST") {
-        const token = getCookie(request, "session");
+        const token =
+          getCookie(request, "session");
 
         if (token) {
           await env.DB.prepare(`
@@ -298,7 +324,8 @@ export default {
           }),
           {
             headers: {
-              "Content-Type": "application/json; charset=UTF-8",
+              "Content-Type":
+                "application/json; charset=UTF-8",
               "Set-Cookie":
                 "session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
             }
@@ -311,7 +338,8 @@ export default {
       ========================= */
 
       if (path === "/api/me" && method === "GET") {
-        const user = await getCurrentUser(request, env);
+        const user =
+          await getCurrentUser(request, env);
 
         if (!user) {
           return json({
@@ -332,41 +360,44 @@ export default {
       }
 
       /* =========================
-         ORDERS
+         ORDERS - GET
       ========================= */
 
       if (path === "/api/orders" && method === "GET") {
-        const user = await getCurrentUser(request, env);
+        const user =
+          await getCurrentUser(request, env);
 
         if (!user) {
           return json(
             {
               ok: false,
-              error: "ابتدا وارد حساب کاربری شوید."
+              error:
+                "ابتدا وارد حساب کاربری شوید."
             },
             401
           );
         }
 
-        const orders = await env.DB.prepare(`
-          SELECT
-            o.id,
-            o.user_id,
-            o.product_id,
-            o.status,
-            o.created_at,
-            p.name,
-            p.description,
-            p.price,
-            p.image
-          FROM orders o
-          LEFT JOIN products p
-            ON p.id = o.product_id
-          WHERE o.user_id = ?
-          ORDER BY o.id DESC
-        `)
-          .bind(user.id)
-          .all();
+        const orders =
+          await env.DB.prepare(`
+            SELECT
+              o.id,
+              o.user_id,
+              o.product_id,
+              o.status,
+              o.created_at,
+              p.name,
+              p.description,
+              p.price,
+              p.image
+            FROM orders o
+            LEFT JOIN products p
+              ON p.id = o.product_id
+            WHERE o.user_id = ?
+            ORDER BY o.created_at DESC
+          `)
+            .bind(user.id)
+            .all();
 
         return json({
           ok: true,
@@ -379,75 +410,93 @@ export default {
       ========================= */
 
       if (path === "/api/orders" && method === "POST") {
-        const user = await getCurrentUser(request, env);
+        const user =
+          await getCurrentUser(request, env);
 
         if (!user) {
           return json(
             {
               ok: false,
-              error: "برای ثبت سفارش ابتدا وارد حساب کاربری شوید."
+              error:
+                "برای ثبت سفارش ابتدا وارد حساب کاربری شوید."
             },
             401
           );
         }
 
-        const body = await readJSON(request);
+        const body =
+          await readJSON(request);
 
         const productId = Number(
-          body.product_id ?? body.productId ?? body.id
+          body.product_id ??
+          body.productId ??
+          body.id
         );
 
-        if (!Number.isFinite(productId) || productId <= 0) {
+        if (
+          !Number.isFinite(productId) ||
+          productId <= 0
+        ) {
           return json(
             {
               ok: false,
-              error: "شناسه محصول نامعتبر است."
+              error:
+                "شناسه محصول نامعتبر است."
             },
             400
           );
         }
 
-        /* بسیار مهم:
-           قیمت از D1 گرفته می‌شود و به قیمت ارسالی مرورگر اعتماد نمی‌کنیم.
-        */
+        /*
+         * قیمت فقط از D1 خوانده می‌شود.
+         * قیمت ارسالی مرورگر قابل اعتماد نیست.
+         */
 
-        const product = await env.DB.prepare(`
-          SELECT
-            id,
-            name,
-            description,
-            price,
-            image
-          FROM products
-          WHERE id = ?
-          LIMIT 1
-        `)
-          .bind(productId)
-          .first();
+        const product =
+          await env.DB.prepare(`
+            SELECT
+              id,
+              name,
+              description,
+              price,
+              image
+            FROM products
+            WHERE id = ?
+            LIMIT 1
+          `)
+            .bind(productId)
+            .first();
 
         if (!product) {
           return json(
             {
               ok: false,
-              error: "محصول موردنظر پیدا نشد."
+              error:
+                "محصول موردنظر پیدا نشد."
             },
             404
           );
         }
 
-        const normalizedPrice = normalizePrice(product.price);
+        const normalizedPrice =
+          normalizePrice(product.price);
 
-        if (!Number.isFinite(normalizedPrice) || normalizedPrice <= 0) {
+        if (
+          !Number.isFinite(normalizedPrice) ||
+          normalizedPrice <= 0
+        ) {
           return json(
             {
               ok: false,
-              error: "قیمت محصول در پایگاه داده معتبر نیست."
+              error:
+                "قیمت محصول در پایگاه داده معتبر نیست."
             },
             400
           );
         }
 
-        const orderId = crypto.randomUUID();
+        const orderId =
+          crypto.randomUUID();
 
         await env.DB.prepare(`
           INSERT INTO orders
@@ -466,13 +515,15 @@ export default {
 
         return json({
           ok: true,
-          message: "سفارش با موفقیت ثبت شد.",
+          message:
+            "سفارش با موفقیت ثبت شد.",
           order: {
             id: orderId,
             product_id: product.id,
             product_name: product.name,
             price: normalizedPrice,
-            price_display: formatPrice(normalizedPrice),
+            price_display:
+              formatPrice(normalizedPrice),
             status: "pending"
           }
         });
@@ -482,36 +533,48 @@ export default {
          ADMIN LOGIN
       ========================= */
 
-      if (path === "/api/admin/login" && method === "POST") {
-        const body = await readJSON(request);
+      if (
+        path === "/api/admin/login" &&
+        method === "POST"
+      ) {
+        const body =
+          await readJSON(request);
 
-        const username = String(body.username || "").trim();
-        const password = String(body.password || "");
+        const username =
+          String(body.username || "").trim();
+
+        const password =
+          String(body.password || "");
 
         if (!username || !password) {
           return json(
             {
               ok: false,
-              error: "نام کاربری و رمز عبور را وارد کنید."
+              error:
+                "نام کاربری و رمز عبور را وارد کنید."
             },
             400
           );
         }
 
         if (
-          username !== DEFAULT_ADMIN_USERNAME ||
-          password !== String(env.ADMIN_PASSWORD || "")
+          username !==
+            DEFAULT_ADMIN_USERNAME ||
+          password !==
+            String(env.ADMIN_PASSWORD || "")
         ) {
           return json(
             {
               ok: false,
-              error: "اطلاعات مدیریت صحیح نیست."
+              error:
+                "اطلاعات مدیریت صحیح نیست."
             },
             401
           );
         }
 
-        const token = randomToken();
+        const token =
+          randomToken();
 
         await env.DB.prepare(`
           INSERT INTO admin_sessions
@@ -524,19 +587,27 @@ export default {
             token,
             username,
             new Date().toISOString(),
-            new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+            new Date(
+              Date.now() + 24 * 60 * 60 * 1000
+            ).toISOString()
           )
           .run();
 
         return new Response(
           JSON.stringify({
             ok: true,
-            message: "ورود مدیریت موفق بود."
+            message:
+              "ورود مدیریت موفق بود."
           }),
           {
             headers: {
-              "Content-Type": "application/json; charset=UTF-8",
-              "Set-Cookie": cookieHeader("admin_session", token)
+              "Content-Type":
+                "application/json; charset=UTF-8",
+              "Set-Cookie":
+                cookieHeader(
+                  "admin_session",
+                  token
+                )
             }
           }
         );
@@ -546,8 +617,15 @@ export default {
          ADMIN LOGOUT
       ========================= */
 
-      if (path === "/api/admin/logout" && method === "POST") {
-        const token = getCookie(request, "admin_session");
+      if (
+        path === "/api/admin/logout" &&
+        method === "POST"
+      ) {
+        const token =
+          getCookie(
+            request,
+            "admin_session"
+          );
 
         if (token) {
           await env.DB.prepare(`
@@ -564,7 +642,8 @@ export default {
           }),
           {
             headers: {
-              "Content-Type": "application/json; charset=UTF-8",
+              "Content-Type":
+                "application/json; charset=UTF-8",
               "Set-Cookie":
                 "admin_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
             }
@@ -576,34 +655,45 @@ export default {
          ADMIN ME
       ========================= */
 
-      if (path === "/api/admin/me" && method === "GET") {
-        const admin = await getAdmin(request, env);
+      if (
+        path === "/api/admin/me" &&
+        method === "GET"
+      ) {
+        const admin =
+          await getAdmin(request, env);
 
         return json({
           ok: true,
           loggedIn: !!admin,
-          username: admin?.username || null
+          username:
+            admin?.username || null
         });
       }
 
       /* =========================
-         ADMIN PRODUCTS
+         ADMIN PRODUCTS - GET
       ========================= */
 
-      if (path === "/api/admin/products" && method === "GET") {
-        const admin = await getAdmin(request, env);
+      if (
+        path === "/api/admin/products" &&
+        method === "GET"
+      ) {
+        const admin =
+          await getAdmin(request, env);
 
         if (!admin) {
           return json(
             {
               ok: false,
-              error: "دسترسی مدیریت لازم است."
+              error:
+                "دسترسی مدیریت لازم است."
             },
             401
           );
         }
 
-        const products = await getProducts(env);
+        const products =
+          await getProducts(env);
 
         return json({
           ok: true,
@@ -615,75 +705,117 @@ export default {
          ADMIN ADD PRODUCT
       ========================= */
 
-      if (path === "/api/admin/products" && method === "POST") {
-        const admin = await getAdmin(request, env);
+      if (
+        path === "/api/admin/products" &&
+        method === "POST"
+      ) {
+        const admin =
+          await getAdmin(request, env);
 
         if (!admin) {
           return json(
             {
               ok: false,
-              error: "دسترسی مدیریت لازم است."
+              error:
+                "دسترسی مدیریت لازم است."
             },
             401
           );
         }
 
-        const body = await readJSON(request);
+        const body =
+          await readJSON(request);
 
-        const name = String(body.name || "").trim();
-        const description = String(body.description || "").trim();
-        const image = String(body.image || "🛍️").trim();
+        const name =
+          String(body.name || "").trim();
 
-        const price = normalizePrice(
-          body.price
-        );
+        const description =
+          String(
+            body.description || ""
+          ).trim();
+
+        const image =
+          String(
+            body.image || "🛍️"
+          ).trim();
+
+        const price =
+          normalizePrice(body.price);
 
         if (!name) {
           return json(
             {
               ok: false,
-              error: "نام محصول الزامی است."
+              error:
+                "نام محصول الزامی است."
             },
             400
           );
         }
 
-        if (!Number.isFinite(price) || price <= 0) {
+        if (
+          !Number.isFinite(price) ||
+          price <= 0
+        ) {
           return json(
             {
               ok: false,
-              error: "قیمت محصول معتبر نیست."
+              error:
+                "قیمت محصول معتبر نیست."
             },
             400
           );
         }
 
-        const id = crypto.randomUUID();
+        /*
+         * مهم:
+         * id در جدول products از نوع INTEGER
+         * و AUTOINCREMENT است.
+         *
+         * بنابراین نباید UUID داخل id قرار دهیم.
+         */
 
-        await env.DB.prepare(`
-          INSERT INTO products
-            (id, name, description, price, image, created_at)
-          VALUES
-            (?, ?, ?, ?, ?, ?)
-        `)
-          .bind(
-            id,
-            name,
-            description,
-            price,
-            image,
-            new Date().toISOString()
-          )
-          .run();
+        const result =
+          await env.DB.prepare(`
+            INSERT INTO products
+              (name, description, price, image, created_at)
+            VALUES
+              (?, ?, ?, ?, ?)
+          `)
+            .bind(
+              name,
+              description,
+              price,
+              image,
+              new Date().toISOString()
+            )
+            .run();
+
+        const id =
+          result.meta?.last_row_id;
+
+        if (!id) {
+          return json(
+            {
+              ok: false,
+              error:
+                "محصول ایجاد شد اما شناسه آن دریافت نشد."
+            },
+            500
+          );
+        }
 
         return json({
           ok: true,
-          message: "محصول اضافه شد.",
+          message:
+            "محصول اضافه شد.",
           product: {
             id,
             name,
             description,
             price,
+            price_display:
+              formatPrice(price),
             image
           }
         });
@@ -693,30 +825,43 @@ export default {
          ADMIN DELETE PRODUCT
       ========================= */
 
-      if (path === "/api/admin/products" && method === "DELETE") {
-        const admin = await getAdmin(request, env);
+      if (
+        path === "/api/admin/products" &&
+        method === "DELETE"
+      ) {
+        const admin =
+          await getAdmin(request, env);
 
         if (!admin) {
           return json(
             {
               ok: false,
-              error: "دسترسی مدیریت لازم است."
+              error:
+                "دسترسی مدیریت لازم است."
             },
             401
           );
         }
 
-        const body = await readJSON(request);
+        const body =
+          await readJSON(request);
 
-        const productId = Number(
-          body.product_id ?? body.productId ?? body.id
-        );
+        const productId =
+          Number(
+            body.product_id ??
+            body.productId ??
+            body.id
+          );
 
-        if (!Number.isFinite(productId)) {
+        if (
+          !Number.isFinite(productId) ||
+          productId <= 0
+        ) {
           return json(
             {
               ok: false,
-              error: "شناسه محصول نامعتبر است."
+              error:
+                "شناسه محصول نامعتبر است."
             },
             400
           );
@@ -731,7 +876,8 @@ export default {
 
         return json({
           ok: true,
-          message: "محصول حذف شد."
+          message:
+            "محصول حذف شد."
         });
       }
 
@@ -739,42 +885,50 @@ export default {
          ADMIN ORDERS
       ========================= */
 
-      if (path === "/api/admin/orders" && method === "GET") {
-        const admin = await getAdmin(request, env);
+      if (
+        path === "/api/admin/orders" &&
+        method === "GET"
+      ) {
+        const admin =
+          await getAdmin(request, env);
 
         if (!admin) {
           return json(
             {
               ok: false,
-              error: "دسترسی مدیریت لازم است."
+              error:
+                "دسترسی مدیریت لازم است."
             },
             401
           );
         }
 
-        const orders = await env.DB.prepare(`
-          SELECT
-            o.id,
-            o.user_id,
-            o.product_id,
-            o.status,
-            o.created_at,
-            u.username,
-            u.email,
-            p.name,
-            p.price,
-            p.image
-          FROM orders o
-          LEFT JOIN users u
-            ON u.id = o.user_id
-          LEFT JOIN products p
-            ON p.id = o.product_id
-          ORDER BY o.id DESC
-        `).all();
+        const orders =
+          await env.DB.prepare(`
+            SELECT
+              o.id,
+              o.user_id,
+              o.product_id,
+              o.status,
+              o.created_at,
+              u.username,
+              u.email,
+              p.name,
+              p.price,
+              p.image
+            FROM orders o
+            LEFT JOIN users u
+              ON u.id = o.user_id
+            LEFT JOIN products p
+              ON p.id = o.product_id
+            ORDER BY o.created_at DESC
+          `)
+            .all();
 
         return json({
           ok: true,
-          orders: orders.results || []
+          orders:
+            orders.results || []
         });
       }
 
@@ -782,26 +936,39 @@ export default {
          ADMIN ORDER STATUS
       ========================= */
 
-      if (path === "/api/admin/orders/status" && method === "POST") {
-        const admin = await getAdmin(request, env);
+      if (
+        path === "/api/admin/orders/status" &&
+        method === "POST"
+      ) {
+        const admin =
+          await getAdmin(request, env);
 
         if (!admin) {
           return json(
             {
               ok: false,
-              error: "دسترسی مدیریت لازم است."
+              error:
+                "دسترسی مدیریت لازم است."
             },
             401
           );
         }
 
-        const body = await readJSON(request);
+        const body =
+          await readJSON(request);
 
-        const orderId = String(
-          body.order_id ?? body.orderId ?? body.id ?? ""
-        ).trim();
+        const orderId =
+          String(
+            body.order_id ??
+            body.orderId ??
+            body.id ??
+            ""
+          ).trim();
 
-        const status = String(body.status || "").trim();
+        const status =
+          String(
+            body.status || ""
+          ).trim();
 
         const allowedStatuses = [
           "pending",
@@ -810,11 +977,15 @@ export default {
           "cancelled"
         ];
 
-        if (!orderId || !allowedStatuses.includes(status)) {
+        if (
+          !orderId ||
+          !allowedStatuses.includes(status)
+        ) {
           return json(
             {
               ok: false,
-              error: "اطلاعات وضعیت سفارش معتبر نیست."
+              error:
+                "اطلاعات وضعیت سفارش معتبر نیست."
             },
             400
           );
@@ -825,23 +996,35 @@ export default {
           SET status = ?
           WHERE id = ?
         `)
-          .bind(status, orderId)
+          .bind(
+            status,
+            orderId
+          )
           .run();
 
         return json({
           ok: true,
-          message: "وضعیت سفارش تغییر کرد."
+          message:
+            "وضعیت سفارش تغییر کرد."
         });
       }
 
-      return html(notFoundPage(), 404);
+      return html(
+        notFoundPage(),
+        404
+      );
 
     } catch (error) {
       return json(
         {
           ok: false,
-          error: "خطای داخلی سرور.",
-          detail: String(error?.message || error)
+          error:
+            "خطای داخلی سرور.",
+          detail:
+            String(
+              error?.message ||
+              error
+            )
         },
         500
       );
@@ -855,6 +1038,7 @@ export default {
 ========================================================= */
 
 async function initDB(env) {
+
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -913,22 +1097,25 @@ async function initDB(env) {
 ========================================================= */
 
 async function getProducts(env) {
-  const result = await env.DB.prepare(`
-    SELECT
-      id,
-      name,
-      description,
-      price,
-      image,
-      created_at
-    FROM products
-    ORDER BY id DESC
-  `).all();
+
+  const result =
+    await env.DB.prepare(`
+      SELECT
+        id,
+        name,
+        description,
+        price,
+        image,
+        created_at
+      FROM products
+      ORDER BY id DESC
+    `).all();
 
   return result.results || [];
 }
 
 async function getProduct(env, id) {
+
   return await env.DB.prepare(`
     SELECT
       id,
@@ -951,25 +1138,45 @@ async function getProduct(env, id) {
 ========================================================= */
 
 function normalizeDigits(value) {
+
   return String(value ?? "")
-    .replace(/[۰-۹]/g, function (d) {
-      return String("۰۱۲۳۴۵۶۷۸۹".indexOf(d));
-    })
-    .replace(/[٠-٩]/g, function (d) {
-      return String("٠١٢٣٤٥٦٧٨٩".indexOf(d));
-    });
+    .replace(
+      /[۰-۹]/g,
+      function (d) {
+        return String(
+          "۰۱۲۳۴۵۶۷۸۹".indexOf(d)
+        );
+      }
+    )
+    .replace(
+      /[٠-٩]/g,
+      function (d) {
+        return String(
+          "٠١٢٣٤٥٦٧٨٩".indexOf(d)
+        );
+      }
+    );
 }
 
 function normalizePrice(value) {
-  if (value === null || value === undefined) {
+
+  if (
+    value === null ||
+    value === undefined
+  ) {
     return 0;
   }
 
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value : 0;
+  if (
+    typeof value === "number"
+  ) {
+    return Number.isFinite(value)
+      ? value
+      : 0;
   }
 
-  let text = normalizeDigits(value);
+  let text =
+    normalizeDigits(value);
 
   text = text
     .replace(/[٬,]/g, "")
@@ -982,19 +1189,30 @@ function normalizePrice(value) {
     return 0;
   }
 
-  const number = Number(text);
+  const number =
+    Number(text);
 
-  return Number.isFinite(number) ? number : 0;
+  return Number.isFinite(number)
+    ? number
+    : 0;
 }
 
 function formatPrice(value) {
-  const number = normalizePrice(value);
 
-  if (!Number.isFinite(number) || number <= 0) {
+  const number =
+    normalizePrice(value);
+
+  if (
+    !Number.isFinite(number) ||
+    number <= 0
+  ) {
     return "قیمت نامشخص";
   }
 
-  return number.toLocaleString("fa-IR") + " تومان";
+  return (
+    number.toLocaleString("fa-IR") +
+    " تومان"
+  );
 }
 
 
@@ -1002,31 +1220,40 @@ function formatPrice(value) {
    AUTH
 ========================================================= */
 
-async function getCurrentUser(request, env) {
-  const token = getCookie(request, "session");
+async function getCurrentUser(
+  request,
+  env
+) {
+
+  const token =
+    getCookie(
+      request,
+      "session"
+    );
 
   if (!token) {
     return null;
   }
 
-  const session = await env.DB.prepare(`
-    SELECT
-      s.*,
-      u.id AS uid,
-      u.username,
-      u.email
-    FROM sessions s
-    JOIN users u
-      ON u.id = s.user_id
-    WHERE s.token = ?
-      AND s.expires_at > ?
-    LIMIT 1
-  `)
-    .bind(
-      token,
-      new Date().toISOString()
-    )
-    .first();
+  const session =
+    await env.DB.prepare(`
+      SELECT
+        s.*,
+        u.id AS uid,
+        u.username,
+        u.email
+      FROM sessions s
+      JOIN users u
+        ON u.id = s.user_id
+      WHERE s.token = ?
+        AND s.expires_at > ?
+      LIMIT 1
+    `)
+      .bind(
+        token,
+        new Date().toISOString()
+      )
+      .first();
 
   if (!session) {
     return null;
@@ -1034,13 +1261,23 @@ async function getCurrentUser(request, env) {
 
   return {
     id: session.uid,
-    username: session.username,
-    email: session.email
+    username:
+      session.username,
+    email:
+      session.email
   };
 }
 
-async function getAdmin(request, env) {
-  const token = getCookie(request, "admin_session");
+async function getAdmin(
+  request,
+  env
+) {
+
+  const token =
+    getCookie(
+      request,
+      "admin_session"
+    );
 
   if (!token) {
     return null;
@@ -1065,23 +1302,39 @@ async function getAdmin(request, env) {
    PASSWORD / TOKEN
 ========================================================= */
 
-async function hashPassword(password) {
-  const data = new TextEncoder().encode(password);
+async function hashPassword(
+  password
+) {
 
-  const hash = await crypto.subtle.digest(
-    "SHA-256",
-    data
-  );
+  const data =
+    new TextEncoder().encode(
+      password
+    );
 
-  return [...new Uint8Array(hash)]
+  const hash =
+    await crypto.subtle.digest(
+      "SHA-256",
+      data
+    );
+
+  return [
+    ...new Uint8Array(hash)
+  ]
     .map(function (b) {
-      return b.toString(16).padStart(2, "0");
+      return b
+        .toString(16)
+        .padStart(2, "0");
     })
     .join("");
 }
 
 function randomToken() {
-  return crypto.randomUUID() + "-" + crypto.randomUUID();
+
+  return (
+    crypto.randomUUID() +
+    "-" +
+    crypto.randomUUID()
+  );
 }
 
 
@@ -1090,6 +1343,7 @@ function randomToken() {
 ========================================================= */
 
 async function readJSON(request) {
+
   try {
     return await request.json();
   } catch (_) {
@@ -1097,24 +1351,53 @@ async function readJSON(request) {
   }
 }
 
-function getCookie(request, name) {
-  const cookie = request.headers.get("Cookie") || "";
+function getCookie(
+  request,
+  name
+) {
 
-  const parts = cookie.split(";");
+  const cookie =
+    request.headers.get(
+      "Cookie"
+    ) || "";
 
-  for (const part of parts) {
-    const [key, ...rest] = part.trim().split("=");
+  const parts =
+    cookie.split(";");
+
+  for (
+    const part of parts
+  ) {
+
+    const [
+      key,
+      ...rest
+    ] =
+      part
+        .trim()
+        .split("=");
 
     if (key === name) {
-      return decodeURIComponent(rest.join("="));
+      return decodeURIComponent(
+        rest.join("=")
+      );
     }
   }
 
   return null;
 }
 
-function cookieHeader(name, value) {
-  return `${name}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`;
+function cookieHeader(
+  name,
+  value
+) {
+
+  return (
+    `${name}=${encodeURIComponent(value)}; ` +
+    `Path=/; ` +
+    `HttpOnly; ` +
+    `SameSite=Lax; ` +
+    `Max-Age=2592000`
+  );
 }
 
 
@@ -1122,50 +1405,86 @@ function cookieHeader(name, value) {
    RESPONSE HELPERS
 ========================================================= */
 
-function json(data, status = 200) {
+function json(
+  data,
+  status = 200
+) {
+
   return new Response(
     JSON.stringify(data),
     {
       status,
       headers: {
-        "Content-Type": "application/json; charset=UTF-8",
-        "Cache-Control": "no-store"
+        "Content-Type":
+          "application/json; charset=UTF-8",
+        "Cache-Control":
+          "no-store"
       }
     }
   );
 }
 
-function html(content, status = 200) {
+function html(
+  content,
+  status = 200
+) {
+
   return new Response(
     content,
     {
       status,
       headers: {
-        "Content-Type": "text/html; charset=UTF-8",
-        "Cache-Control": "no-store"
+        "Content-Type":
+          "text/html; charset=UTF-8",
+        "Cache-Control":
+          "no-store"
       }
     }
   );
 }
 
 function escapeHtml(value) {
+
   return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+    .replace(
+      /&/g,
+      "&amp;"
+    )
+    .replace(
+      /</g,
+      "&lt;"
+    )
+    .replace(
+      />/g,
+      "&gt;"
+    )
+    .replace(
+      /"/g,
+      "&quot;"
+    )
+    .replace(
+      /'/g,
+      "&#039;"
+    );
 }
 
 function statusLabel(status) {
+
   const map = {
-    pending: "در انتظار بررسی",
-    paid: "پرداخت شده",
-    completed: "تکمیل شده",
-    cancelled: "لغو شده"
+    pending:
+      "در انتظار بررسی",
+    paid:
+      "پرداخت شده",
+    completed:
+      "تکمیل شده",
+    cancelled:
+      "لغو شده"
   };
 
-  return map[status] || status;
+  return (
+    map[status] ||
+    status
+  );
 }
 
 
@@ -1173,14 +1492,27 @@ function statusLabel(status) {
    BASE PAGE
 ========================================================= */
 
-function basePage(title, content, scripts = "") {
+function basePage(
+  title,
+  content,
+  scripts = ""
+) {
+
   return `<!doctype html>
 <html lang="fa" dir="rtl">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
 
-  <title>${escapeHtml(title)}</title>
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  >
+
+  <title>
+    ${escapeHtml(title)}
+  </title>
 
   <meta
     name="description"
@@ -1188,6 +1520,7 @@ function basePage(title, content, scripts = "") {
   >
 
   <style>
+
     *{
       box-sizing:border-box;
     }
@@ -1400,7 +1733,8 @@ function basePage(title, content, scripts = "") {
 
     .product-card:hover{
       transform:translateY(-3px);
-      box-shadow:0 12px 35px rgba(0,0,0,.07);
+      box-shadow:
+        0 12px 35px rgba(0,0,0,.07);
     }
 
     .product-image{
@@ -1408,7 +1742,12 @@ function basePage(title, content, scripts = "") {
       display:flex;
       align-items:center;
       justify-content:center;
-      background:linear-gradient(135deg,#f2ecff,#f8f8ff);
+      background:
+        linear-gradient(
+          135deg,
+          #f2ecff,
+          #f8f8ff
+        );
       font-size:58px;
     }
 
@@ -1521,6 +1860,7 @@ function basePage(title, content, scripts = "") {
     }
 
     @media(max-width:800px){
+
       .features,
       .products{
         grid-template-columns:1fr;
@@ -1547,49 +1887,88 @@ function basePage(title, content, scripts = "") {
       .hero{
         padding-top:25px;
       }
+
     }
+
   </style>
+
 </head>
 
 <body>
 
 <header>
+
   <div class="container nav">
 
-    <a href="/" class="brand">
-      <div class="logo">D</div>
+    <a
+      href="/"
+      class="brand"
+    >
+
+      <div class="logo">
+        D
+      </div>
 
       <div class="brand-text">
-        <div class="brand-fa">${STORE_NAME}</div>
-        <div class="brand-en">${STORE_EN}</div>
+
+        <div class="brand-fa">
+          ${STORE_NAME}
+        </div>
+
+        <div class="brand-en">
+          ${STORE_EN}
+        </div>
+
       </div>
+
     </a>
 
     <nav>
-      <a href="/">خانه</a>
-      <a href="/#products">محصولات</a>
-      <a href="/account">حساب من</a>
-      <a href="/admin">مدیریت</a>
+
+      <a href="/">
+        خانه
+      </a>
+
+      <a href="/#products">
+        محصولات
+      </a>
+
+      <a href="/account">
+        حساب من
+      </a>
+
+      <a href="/admin">
+        مدیریت
+      </a>
+
     </nav>
 
   </div>
+
 </header>
 
 <main>
+
   <div class="container">
     ${content}
   </div>
+
 </main>
 
 <footer>
+
   <div class="container">
-    ${STORE_NAME} © ${new Date().getFullYear()}
+    ${STORE_NAME}
+    ©
+    ${new Date().getFullYear()}
   </div>
+
 </footer>
 
 ${scripts}
 
 </body>
+
 </html>`;
 }
 
@@ -1599,7 +1978,9 @@ ${scripts}
 ========================================================= */
 
 function homePage() {
+
   const content = `
+
     <section class="hero">
 
       <div class="eyebrow">
@@ -1620,13 +2001,21 @@ function homePage() {
       </p>
 
       <div class="actions">
-        <a class="btn btn-dark" href="#products">
+
+        <a
+          class="btn btn-dark"
+          href="#products"
+        >
           مشاهده محصولات
         </a>
 
-        <a class="btn btn-light" href="/account">
+        <a
+          class="btn btn-light"
+          href="/account"
+        >
           حساب کاربری
         </a>
+
       </div>
 
     </section>
@@ -1634,27 +2023,51 @@ function homePage() {
     <section class="features">
 
       <div class="feature">
-        <div class="feature-icon">⚡</div>
-        <h3>ساده و سریع</h3>
+
+        <div class="feature-icon">
+          ⚡
+        </div>
+
+        <h3>
+          ساده و سریع
+        </h3>
+
         <p>
           تجربه‌ای ساده و سریع برای دسترسی به محصولات دیجیتال.
         </p>
+
       </div>
 
       <div class="feature">
-        <div class="feature-icon">📱</div>
-        <h3>مناسب موبایل</h3>
+
+        <div class="feature-icon">
+          📱
+        </div>
+
+        <h3>
+          مناسب موبایل
+        </h3>
+
         <p>
           طراحی مناسب برای استفاده با گوشی و تبلت.
         </p>
+
       </div>
 
       <div class="feature">
-        <div class="feature-icon">🛍️</div>
-        <h3>محصولات دیجیتال</h3>
+
+        <div class="feature-icon">
+          🛍️
+        </div>
+
+        <h3>
+          محصولات دیجیتال
+        </h3>
+
         <p>
           محصولات کاربردی دیجیتال در یک فروشگاه آنلاین.
         </p>
+
       </div>
 
     </section>
@@ -1662,45 +2075,75 @@ function homePage() {
     <section id="products">
 
       <div class="section-title">
-        <h2>محصولات فروشگاه</h2>
+
+        <h2>
+          محصولات فروشگاه
+        </h2>
+
         <p>
           محصولات دیجیتال موجود در دیجی‌ماریکسو
         </p>
+
       </div>
 
-      <div id="products-list" class="products">
+      <div
+        id="products-list"
+        class="products"
+      >
+
         <div class="loading">
           در حال دریافت محصولات...
         </div>
+
       </div>
 
     </section>
   `;
 
   const scripts = `
+
 <script>
 
 function normalizeDigitsClient(value){
+
   return String(value ?? "")
-    .replace(/[۰-۹]/g, function(d){
-      return String("۰۱۲۳۴۵۶۷۸۹".indexOf(d));
-    })
-    .replace(/[٠-٩]/g, function(d){
-      return String("٠١٢٣٤٥٦٧٨٩".indexOf(d));
-    });
+    .replace(
+      /[۰-۹]/g,
+      function(d){
+        return String(
+          "۰۱۲۳۴۵۶۷۸۹".indexOf(d)
+        );
+      }
+    )
+    .replace(
+      /[٠-٩]/g,
+      function(d){
+        return String(
+          "٠١٢٣٤٥٦٧٨٩".indexOf(d)
+        );
+      }
+    );
 }
 
 function normalizePriceClient(value){
 
-  if(value === null || value === undefined){
+  if(
+    value === null ||
+    value === undefined
+  ){
     return 0;
   }
 
-  if(typeof value === "number"){
-    return Number.isFinite(value) ? value : 0;
+  if(
+    typeof value === "number"
+  ){
+    return Number.isFinite(value)
+      ? value
+      : 0;
   }
 
-  let text = normalizeDigitsClient(value);
+  let text =
+    normalizeDigitsClient(value);
 
   text = text
     .replace(/[٬,]/g,"")
@@ -1709,20 +2152,30 @@ function normalizePriceClient(value){
     .replace(/[^\\d.-]/g,"")
     .trim();
 
-  const number = Number(text);
+  const number =
+    Number(text);
 
-  return Number.isFinite(number) ? number : 0;
+  return Number.isFinite(number)
+    ? number
+    : 0;
 }
 
 function priceClient(value){
 
-  const number = normalizePriceClient(value);
+  const number =
+    normalizePriceClient(value);
 
-  if(!Number.isFinite(number) || number <= 0){
+  if(
+    !Number.isFinite(number) ||
+    number <= 0
+  ){
     return "قیمت نامشخص";
   }
 
-  return number.toLocaleString("fa-IR") + " تومان";
+  return (
+    number.toLocaleString("fa-IR") +
+    " تومان"
+  );
 }
 
 function escapeClient(value){
@@ -1737,28 +2190,39 @@ function escapeClient(value){
 
 async function loadProducts(){
 
-  const box = document.getElementById("products-list");
+  const box =
+    document.getElementById(
+      "products-list"
+    );
 
   box.innerHTML =
-    '<div class="loading">در حال دریافت محصولات...</div>';
+    '<div class="loading">' +
+    'در حال دریافت محصولات...' +
+    '</div>';
 
   try{
 
-    const response = await fetch(
-      "/api/products",
-      {
-        method:"GET",
-        cache:"no-store"
-      }
-    );
+    const response =
+      await fetch(
+        "/api/products",
+        {
+          method:"GET",
+          cache:"no-store"
+        }
+      );
 
-    const text = await response.text();
+    const text =
+      await response.text();
 
     let data;
 
     try{
-      data = JSON.parse(text);
+
+      data =
+        JSON.parse(text);
+
     }catch(_){
+
       throw new Error(
         "پاسخ نامعتبر از سرور (" +
         response.status +
@@ -1766,7 +2230,10 @@ async function loadProducts(){
       );
     }
 
-    if(!response.ok || !data.ok){
+    if(
+      !response.ok ||
+      !data.ok
+    ){
 
       throw new Error(
         data.error ||
@@ -1789,51 +2256,62 @@ async function loadProducts(){
       return;
     }
 
-    box.innerHTML = products.map(function(product){
+    box.innerHTML =
+      products.map(
+        function(product){
 
-      const id = Number(product.id);
+          const id =
+            Number(product.id);
 
-      return \`
-        <article class="product-card">
+          return \`
+            <article class="product-card">
 
-          <div class="product-image">
-            \${escapeClient(product.image || "🛍️")}
-          </div>
+              <div class="product-image">
+                \${escapeClient(
+                  product.image ||
+                  "🛍️"
+                )}
+              </div>
 
-          <div class="product-body">
+              <div class="product-body">
 
-            <h3>
-              \${escapeClient(product.name)}
-            </h3>
+                <h3>
+                  \${escapeClient(
+                    product.name
+                  )}
+                </h3>
 
-            <p>
-              \${escapeClient(
-                product.description ||
-                "محصول دیجیتال از فروشگاه دیجی‌ماریکسو."
-              )}
-            </p>
+                <p>
+                  \${escapeClient(
+                    product.description ||
+                    "محصول دیجیتال از فروشگاه دیجی‌ماریکسو."
+                  )}
+                </p>
 
-            <div class="product-bottom">
+                <div class="product-bottom">
 
-              <span class="price">
-                \${priceClient(product.price)}
-              </span>
+                  <span class="price">
+                    \${priceClient(
+                      product.price
+                    )}
+                  </span>
 
-              <a
-                class="btn btn-dark"
-                href="/product/\${id}"
-              >
-                مشاهده
-              </a>
+                  <a
+                    class="btn btn-dark"
+                    href="/product/\${id}"
+                  >
+                    مشاهده
+                  </a>
 
-            </div>
+                </div>
 
-          </div>
+              </div>
 
-        </article>
-      \`;
+            </article>
+          \`;
 
-    }).join("");
+        }
+      ).join("");
 
   }catch(error){
 
@@ -1880,11 +2358,13 @@ loadProducts();
    PRODUCT PAGE
 ========================================================= */
 
-function productPage(product) {
+function productPage(product){
 
-  const safeId = Number(product.id);
+  const safeId =
+    Number(product.id);
 
   const content = `
+
     <section class="hero">
 
       <div class="eyebrow">
@@ -1905,7 +2385,10 @@ function productPage(product) {
       <div class="card">
 
         <div class="product-image">
-          ${escapeHtml(product.image || "🛍️")}
+          ${escapeHtml(
+            product.image ||
+            "🛍️"
+          )}
         </div>
 
         <h2>
@@ -1942,34 +2425,49 @@ function productPage(product) {
   `;
 
   const scripts = `
+
 <script>
 
-async function createOrder(productId){
+async function createOrder(
+  productId
+){
 
   const result =
-    document.getElementById("order-result");
+    document.getElementById(
+      "order-result"
+    );
 
   result.innerHTML =
-    '<div class="loading">در حال ثبت سفارش...</div>';
+    '<div class="loading">' +
+    'در حال ثبت سفارش...' +
+    '</div>';
 
   try{
 
-    const response = await fetch(
-      "/api/orders",
-      {
-        method:"POST",
-        headers:{
-          "Content-Type":"application/json"
-        },
-        body:JSON.stringify({
-          product_id: productId
-        })
-      }
-    );
+    const response =
+      await fetch(
+        "/api/orders",
+        {
+          method:"POST",
+          headers:{
+            "Content-Type":
+              "application/json"
+          },
+          body:
+            JSON.stringify({
+              product_id:
+                productId
+            })
+        }
+      );
 
-    const data = await response.json();
+    const data =
+      await response.json();
 
-    if(!response.ok || !data.ok){
+    if(
+      !response.ok ||
+      !data.ok
+    ){
 
       throw new Error(
         data.error ||
@@ -1978,7 +2476,11 @@ async function createOrder(productId){
     }
 
     result.innerHTML = \`
-      <div class="card" style="margin-top:15px">
+
+      <div
+        class="card"
+        style="margin-top:15px"
+      >
 
         <strong>
           سفارش با موفقیت ثبت شد.
@@ -2013,12 +2515,17 @@ async function createOrder(productId){
         </a>
 
       </div>
+
     \`;
 
   }catch(error){
 
     result.innerHTML = \`
-      <div class="error-box" style="margin-top:15px">
+
+      <div
+        class="error-box"
+        style="margin-top:15px"
+      >
 
         <strong>
           ثبت سفارش انجام نشد.
@@ -2033,12 +2540,13 @@ async function createOrder(productId){
 
         <button
           class="btn btn-purple"
-          onclick="createOrder(\${productId})"
+          onclick="createOrder(${safeId})"
         >
           تلاش دوباره
         </button>
 
       </div>
+
     \`;
   }
 }
@@ -2057,7 +2565,8 @@ function escapeClient(value){
 `;
 
   return basePage(
-    escapeHtml(product.name) + " | دیجی‌ماریکسو",
+    escapeHtml(product.name) +
+      " | دیجی‌ماریکسو",
     content,
     scripts
   );
@@ -2071,6 +2580,7 @@ function escapeClient(value){
 function accountPage(){
 
   const content = `
+
     <section class="hero">
 
       <div class="eyebrow">
@@ -2091,7 +2601,9 @@ function accountPage(){
 
       <div class="card">
 
-        <h2>ورود</h2>
+        <h2>
+          ورود
+        </h2>
 
         <label>
           نام کاربری یا ایمیل
@@ -2125,19 +2637,26 @@ function accountPage(){
 
       <div class="card">
 
-        <h2>ثبت‌نام</h2>
+        <h2>
+          ثبت‌نام
+        </h2>
 
         <label>
           نام کاربری
         </label>
 
-        <input id="register-username">
+        <input
+          id="register-username"
+        >
 
         <label>
           ایمیل
         </label>
 
-        <input id="register-email" type="email">
+        <input
+          id="register-email"
+          type="email"
+        >
 
         <label>
           رمز عبور
@@ -2163,6 +2682,7 @@ function accountPage(){
   `;
 
   const scripts = `
+
 <script>
 
 async function loadMe(){
@@ -2170,36 +2690,49 @@ async function loadMe(){
   try{
 
     const response =
-      await fetch("/api/me", {
-        cache:"no-store"
-      });
+      await fetch(
+        "/api/me",
+        {
+          cache:"no-store"
+        }
+      );
 
     const data =
       await response.json();
 
     if(data.loggedIn){
 
-      showLoggedIn(data.user);
+      showLoggedIn(
+        data.user
+      );
 
       loadOrders();
     }
 
   }catch(error){}
+
 }
 
 function showLoggedIn(user){
 
-  document.getElementById("account-area").innerHTML = \`
+  document.getElementById(
+    "account-area"
+  ).innerHTML = \`
 
     <div class="card">
 
       <h2>
-        سلام \${escapeClient(user.username)}
+        سلام
+        \${escapeClient(
+          user.username
+        )}
       </h2>
 
       <p>
         ایمیل:
-        \${escapeClient(user.email)}
+        \${escapeClient(
+          user.email
+        )}
       </p>
 
       <button
@@ -2229,7 +2762,9 @@ function showLoggedIn(user){
 async function loginUser(){
 
   const result =
-    document.getElementById("login-result");
+    document.getElementById(
+      "login-result"
+    );
 
   result.innerHTML =
     "در حال ورود...";
@@ -2237,24 +2772,39 @@ async function loginUser(){
   try{
 
     const response =
-      await fetch("/api/login",{
-        method:"POST",
-        headers:{
-          "Content-Type":"application/json"
-        },
-        body:JSON.stringify({
-          login:
-            document.getElementById("login").value,
+      await fetch(
+        "/api/login",
+        {
+          method:"POST",
+          headers:{
+            "Content-Type":
+              "application/json"
+          },
+          body:
+            JSON.stringify({
 
-          password:
-            document.getElementById("login-password").value
-        })
-      });
+              login:
+                document.getElementById(
+                  "login"
+                ).value,
+
+              password:
+                document.getElementById(
+                  "login-password"
+                ).value
+
+            })
+        }
+      );
 
     const data =
       await response.json();
 
-    if(!response.ok || !data.ok){
+    if(
+      !response.ok ||
+      !data.ok
+    ){
+
       throw new Error(
         data.error ||
         "ورود انجام نشد."
@@ -2267,7 +2817,9 @@ async function loginUser(){
 
     result.innerHTML =
       '<div class="error-box">' +
-      escapeClient(error.message) +
+      escapeClient(
+        error.message
+      ) +
       '</div>';
   }
 }
@@ -2275,7 +2827,9 @@ async function loginUser(){
 async function registerUser(){
 
   const result =
-    document.getElementById("register-result");
+    document.getElementById(
+      "register-result"
+    );
 
   result.innerHTML =
     "در حال ایجاد حساب...";
@@ -2283,35 +2837,44 @@ async function registerUser(){
   try{
 
     const response =
-      await fetch("/api/register",{
-        method:"POST",
-        headers:{
-          "Content-Type":"application/json"
-        },
-        body:JSON.stringify({
+      await fetch(
+        "/api/register",
+        {
+          method:"POST",
+          headers:{
+            "Content-Type":
+              "application/json"
+          },
+          body:
+            JSON.stringify({
 
-          username:
-            document.getElementById(
-              "register-username"
-            ).value,
+              username:
+                document.getElementById(
+                  "register-username"
+                ).value,
 
-          email:
-            document.getElementById(
-              "register-email"
-            ).value,
+              email:
+                document.getElementById(
+                  "register-email"
+                ).value,
 
-          password:
-            document.getElementById(
-              "register-password"
-            ).value
+              password:
+                document.getElementById(
+                  "register-password"
+                ).value
 
-        })
-      });
+            })
+        }
+      );
 
     const data =
       await response.json();
 
-    if(!response.ok || !data.ok){
+    if(
+      !response.ok ||
+      !data.ok
+    ){
+
       throw new Error(
         data.error ||
         "ثبت‌نام انجام نشد."
@@ -2324,7 +2887,9 @@ async function registerUser(){
 
     result.innerHTML =
       '<div class="error-box">' +
-      escapeClient(error.message) +
+      escapeClient(
+        error.message
+      ) +
       '</div>';
   }
 }
@@ -2344,7 +2909,9 @@ async function logoutUser(){
 async function loadOrders(){
 
   const box =
-    document.getElementById("orders");
+    document.getElementById(
+      "orders"
+    );
 
   if(!box) return;
 
@@ -2361,7 +2928,10 @@ async function loadOrders(){
     const data =
       await response.json();
 
-    if(!response.ok || !data.ok){
+    if(
+      !response.ok ||
+      !data.ok
+    ){
 
       throw new Error(
         data.error ||
@@ -2385,50 +2955,58 @@ async function loadOrders(){
     }
 
     box.innerHTML =
-      orders.map(function(order){
+      orders.map(
+        function(order){
 
-        return \`
+          return \`
 
-          <div class="order">
+            <div class="order">
 
-            <div class="order-row">
-              <strong>
-                \${escapeClient(
-                  order.name ||
-                  "محصول"
-                )}
-              </strong>
+              <div class="order-row">
 
-              <strong>
-                \${priceClient(
-                  order.price
-                )}
-              </strong>
+                <strong>
+                  \${escapeClient(
+                    order.name ||
+                    "محصول"
+                  )}
+                </strong>
+
+                <strong>
+                  \${priceClient(
+                    order.price
+                  )}
+                </strong>
+
+              </div>
+
+              <div class="order-row">
+
+                <span>
+                  وضعیت
+                </span>
+
+                <span>
+                  \${statusLabel(
+                    order.status
+                  )}
+                </span>
+
+              </div>
+
             </div>
 
-            <div class="order-row">
-              <span>
-                وضعیت
-              </span>
+          \`;
 
-              <span>
-                \${statusLabel(
-                  order.status
-                )}
-              </span>
-            </div>
-
-          </div>
-
-        \`;
-
-      }).join("");
+        }
+      ).join("");
 
   }catch(error){
 
     box.innerHTML =
       '<div class="error-box">' +
-      escapeClient(error.message) +
+      escapeClient(
+        error.message
+      ) +
       '</div>';
   }
 }
@@ -2436,16 +3014,22 @@ async function loadOrders(){
 function normalizeDigitsClient(value){
 
   return String(value ?? "")
-    .replace(/[۰-۹]/g,function(d){
-      return String(
-        "۰۱۲۳۴۵۶۷۸۹".indexOf(d)
-      );
-    })
-    .replace(/[٠-٩]/g,function(d){
-      return String(
-        "٠١٢٣٤٥٦٧٨٩".indexOf(d)
-      );
-    });
+    .replace(
+      /[۰-۹]/g,
+      function(d){
+        return String(
+          "۰۱۲۳۴۵۶۷۸۹".indexOf(d)
+        );
+      }
+    )
+    .replace(
+      /[٠-٩]/g,
+      function(d){
+        return String(
+          "٠١٢٣٤٥٦٧٨٩".indexOf(d)
+        );
+      }
+    );
 }
 
 function normalizePriceClient(value){
@@ -2470,24 +3054,36 @@ function priceClient(value){
   const number =
     normalizePriceClient(value);
 
-  if(!Number.isFinite(number) || number <= 0){
+  if(
+    !Number.isFinite(number) ||
+    number <= 0
+  ){
     return "قیمت نامشخص";
   }
 
-  return number.toLocaleString("fa-IR")
-    + " تومان";
+  return (
+    number.toLocaleString("fa-IR") +
+    " تومان"
+  );
 }
 
 function statusLabel(status){
 
   const map = {
-    pending:"در انتظار بررسی",
-    paid:"پرداخت شده",
-    completed:"تکمیل شده",
-    cancelled:"لغو شده"
+    pending:
+      "در انتظار بررسی",
+    paid:
+      "پرداخت شده",
+    completed:
+      "تکمیل شده",
+    cancelled:
+      "لغو شده"
   };
 
-  return map[status] || status;
+  return (
+    map[status] ||
+    status
+  );
 }
 
 function escapeClient(value){
@@ -2520,6 +3116,7 @@ loadMe();
 function adminPage(){
 
   const content = `
+
     <section class="hero">
 
       <div class="eyebrow">
@@ -2540,13 +3137,18 @@ function adminPage(){
 
       <div class="card">
 
-        <h2>ورود مدیریت</h2>
+        <h2>
+          ورود مدیریت
+        </h2>
 
         <label>
           نام کاربری
         </label>
 
-        <input id="admin-username" value="admin">
+        <input
+          id="admin-username"
+          value="admin"
+        >
 
         <label>
           رمز عبور
@@ -2572,6 +3174,7 @@ function adminPage(){
   `;
 
   const scripts = `
+
 <script>
 
 async function checkAdmin(){
@@ -2594,6 +3197,7 @@ async function checkAdmin(){
     }
 
   }catch(error){}
+
 }
 
 async function adminLogin(){
@@ -2614,28 +3218,34 @@ async function adminLogin(){
         {
           method:"POST",
           headers:{
-            "Content-Type":"application/json"
+            "Content-Type":
+              "application/json"
           },
-          body:JSON.stringify({
+          body:
+            JSON.stringify({
 
-            username:
-              document.getElementById(
-                "admin-username"
-              ).value,
+              username:
+                document.getElementById(
+                  "admin-username"
+                ).value,
 
-            password:
-              document.getElementById(
-                "admin-password"
-              ).value
+              password:
+                document.getElementById(
+                  "admin-password"
+                ).value
 
-          })
+            })
         }
       );
 
     const data =
       await response.json();
 
-    if(!response.ok || !data.ok){
+    if(
+      !response.ok ||
+      !data.ok
+    ){
+
       throw new Error(
         data.error ||
         "ورود مدیریت انجام نشد."
@@ -2648,7 +3258,9 @@ async function adminLogin(){
 
     result.innerHTML =
       '<div class="error-box">' +
-      escapeClient(error.message) +
+      escapeClient(
+        error.message
+      ) +
       '</div>';
   }
 }
@@ -2675,7 +3287,9 @@ function showAdminPanel(){
         توضیحات
       </label>
 
-      <textarea id="product-description"></textarea>
+      <textarea
+        id="product-description"
+      ></textarea>
 
       <label>
         قیمت به تومان
@@ -2739,6 +3353,7 @@ function showAdminPanel(){
       >
         خروج مدیریت
       </button>
+
     </div>
 
   \`;
@@ -2765,38 +3380,43 @@ async function addProduct(){
         {
           method:"POST",
           headers:{
-            "Content-Type":"application/json"
+            "Content-Type":
+              "application/json"
           },
-          body:JSON.stringify({
+          body:
+            JSON.stringify({
 
-            name:
-              document.getElementById(
-                "product-name"
-              ).value,
+              name:
+                document.getElementById(
+                  "product-name"
+                ).value,
 
-            description:
-              document.getElementById(
-                "product-description"
-              ).value,
+              description:
+                document.getElementById(
+                  "product-description"
+                ).value,
 
-            price:
-              document.getElementById(
-                "product-price"
-              ).value,
+              price:
+                document.getElementById(
+                  "product-price"
+                ).value,
 
-            image:
-              document.getElementById(
-                "product-image"
-              ).value
+              image:
+                document.getElementById(
+                  "product-image"
+                ).value
 
-          })
+            })
         }
       );
 
     const data =
       await response.json();
 
-    if(!response.ok || !data.ok){
+    if(
+      !response.ok ||
+      !data.ok
+    ){
 
       throw new Error(
         data.error ||
@@ -2827,7 +3447,9 @@ async function addProduct(){
 
     result.innerHTML =
       '<div class="error-box">' +
-      escapeClient(error.message) +
+      escapeClient(
+        error.message
+      ) +
       '</div>';
   }
 }
@@ -2852,7 +3474,10 @@ async function loadAdminProducts(){
     const data =
       await response.json();
 
-    if(!response.ok || !data.ok){
+    if(
+      !response.ok ||
+      !data.ok
+    ){
 
       throw new Error(
         data.error ||
@@ -2874,55 +3499,63 @@ async function loadAdminProducts(){
     }
 
     box.innerHTML =
-      products.map(function(product){
+      products.map(
+        function(product){
 
-        return \`
+          return \`
 
-          <div class="order">
+            <div class="order">
 
-            <div class="order-row">
+              <div class="order-row">
 
-              <strong>
-                \${escapeClient(
-                  product.name
-                )}
-              </strong>
+                <strong>
+                  \${escapeClient(
+                    product.name
+                  )}
+                </strong>
 
-              <strong>
-                \${priceClient(
-                  product.price
-                )}
-              </strong>
+                <strong>
+                  \${priceClient(
+                    product.price
+                  )}
+                </strong>
+
+              </div>
+
+              <button
+                class="btn btn-light"
+                onclick="deleteProduct(
+                  \${Number(product.id)}
+                )"
+              >
+                حذف
+              </button>
 
             </div>
 
-            <button
-              class="btn btn-light"
-              onclick="deleteProduct(\${Number(product.id)})"
-            >
-              حذف
-            </button>
+          \`;
 
-          </div>
-
-        \`;
-
-      }).join("");
+        }
+      ).join("");
 
   }catch(error){
 
     box.innerHTML =
       '<div class="error-box">' +
-      escapeClient(error.message) +
+      escapeClient(
+        error.message
+      ) +
       '</div>';
   }
 }
 
 async function deleteProduct(id){
 
-  if(!confirm(
-    "آیا از حذف این محصول مطمئن هستید؟"
-  )){
+  if(
+    !confirm(
+      "آیا از حذف این محصول مطمئن هستید؟"
+    )
+  ){
     return;
   }
 
@@ -2934,18 +3567,23 @@ async function deleteProduct(id){
         {
           method:"DELETE",
           headers:{
-            "Content-Type":"application/json"
+            "Content-Type":
+              "application/json"
           },
-          body:JSON.stringify({
-            product_id:id
-          })
+          body:
+            JSON.stringify({
+              product_id:id
+            })
         }
       );
 
     const data =
       await response.json();
 
-    if(!response.ok || !data.ok){
+    if(
+      !response.ok ||
+      !data.ok
+    ){
 
       throw new Error(
         data.error ||
@@ -2981,7 +3619,10 @@ async function loadAdminOrders(){
     const data =
       await response.json();
 
-    if(!response.ok || !data.ok){
+    if(
+      !response.ok ||
+      !data.ok
+    ){
 
       throw new Error(
         data.error ||
@@ -3003,102 +3644,118 @@ async function loadAdminOrders(){
     }
 
     box.innerHTML =
-      orders.map(function(order){
+      orders.map(
+        function(order){
 
-        return \`
+          return \`
 
-          <div class="order">
+            <div class="order">
 
-            <div class="order-row">
-              <strong>
+              <div class="order-row">
+
+                <strong>
+                  \${escapeClient(
+                    order.name ||
+                    "محصول"
+                  )}
+                </strong>
+
+                <strong>
+                  \${priceClient(
+                    order.price
+                  )}
+                </strong>
+
+              </div>
+
+              <div>
+                کاربر:
                 \${escapeClient(
-                  order.name ||
-                  "محصول"
+                  order.username ||
+                  "-"
                 )}
-              </strong>
+              </div>
 
-              <strong>
-                \${priceClient(
-                  order.price
+              <div>
+                ایمیل:
+                \${escapeClient(
+                  order.email ||
+                  "-"
                 )}
-              </strong>
-            </div>
+              </div>
 
-            <div>
-              کاربر:
-              \${escapeClient(
-                order.username ||
-                "-"
-              )}
-            </div>
+              <div class="order-row">
 
-            <div>
-              ایمیل:
-              \${escapeClient(
-                order.email ||
-                "-"
-              )}
-            </div>
+                <span>
+                  وضعیت:
+                  \${statusLabel(
+                    order.status
+                  )}
+                </span>
 
-            <div class="order-row">
-
-              <span>
-                وضعیت:
-                \${statusLabel(
-                  order.status
-                )}
-              </span>
-
-              <select
-                onchange="changeOrderStatus(
-                  '\${escapeClient(order.id)}',
-                  this.value
-                )"
-              >
-
-                <option
-                  value="pending"
-                  \${order.status === "pending" ? "selected" : ""}
+                <select
+                  onchange="changeOrderStatus(
+                    '\${escapeClient(
+                      order.id
+                    )}',
+                    this.value
+                  )"
                 >
-                  در انتظار بررسی
-                </option>
 
-                <option
-                  value="paid"
-                  \${order.status === "paid" ? "selected" : ""}
-                >
-                  پرداخت شده
-                </option>
+                  <option
+                    value="pending"
+                    \${order.status === "pending"
+                      ? "selected"
+                      : ""}
+                  >
+                    در انتظار بررسی
+                  </option>
 
-                <option
-                  value="completed"
-                  \${order.status === "completed" ? "selected" : ""}
-                >
-                  تکمیل شده
-                </option>
+                  <option
+                    value="paid"
+                    \${order.status === "paid"
+                      ? "selected"
+                      : ""}
+                  >
+                    پرداخت شده
+                  </option>
 
-                <option
-                  value="cancelled"
-                  \${order.status === "cancelled" ? "selected" : ""}
-                >
-                  لغو شده
-                </option>
+                  <option
+                    value="completed"
+                    \${order.status === "completed"
+                      ? "selected"
+                      : ""}
+                  >
+                    تکمیل شده
+                  </option>
 
-              </select>
+                  <option
+                    value="cancelled"
+                    \${order.status === "cancelled"
+                      ? "selected"
+                      : ""}
+                  >
+                    لغو شده
+                  </option>
+
+                </select>
+
+              </div>
 
             </div>
 
-          </div>
+          \`;
 
-        \`;
-
-      }).join("");
+        }
+      ).join("");
 
   }catch(error){
 
     box.innerHTML =
       '<div class="error-box">' +
-      escapeClient(error.message) +
+      escapeClient(
+        error.message
+      ) +
       '</div>';
   }
 }
@@ -3116,19 +3773,26 @@ async function changeOrderStatus(
         {
           method:"POST",
           headers:{
-            "Content-Type":"application/json"
+            "Content-Type":
+              "application/json"
           },
-          body:JSON.stringify({
-            order_id:orderId,
-            status:status
-          })
+          body:
+            JSON.stringify({
+              order_id:
+                orderId,
+              status:
+                status
+            })
         }
       );
 
     const data =
       await response.json();
 
-    if(!response.ok || !data.ok){
+    if(
+      !response.ok ||
+      !data.ok
+    ){
 
       throw new Error(
         data.error ||
@@ -3159,16 +3823,22 @@ async function adminLogout(){
 function normalizeDigitsClient(value){
 
   return String(value ?? "")
-    .replace(/[۰-۹]/g,function(d){
-      return String(
-        "۰۱۲۳۴۵۶۷۸۹".indexOf(d)
-      );
-    })
-    .replace(/[٠-٩]/g,function(d){
-      return String(
-        "٠١٢٣٤٥٦٧٨٩".indexOf(d)
-      );
-    });
+    .replace(
+      /[۰-۹]/g,
+      function(d){
+        return String(
+          "۰۱۲۳۴۵۶۷۸۹".indexOf(d)
+        );
+      }
+    )
+    .replace(
+      /[٠-٩]/g,
+      function(d){
+        return String(
+          "٠١٢٣٤٥٦٧٨٩".indexOf(d)
+        );
+      }
+    );
 }
 
 function priceClient(value){
@@ -3183,24 +3853,36 @@ function priceClient(value){
   const number =
     Number(text);
 
-  if(!Number.isFinite(number) || number <= 0){
+  if(
+    !Number.isFinite(number) ||
+    number <= 0
+  ){
     return "قیمت نامشخص";
   }
 
-  return number.toLocaleString("fa-IR")
-    + " تومان";
+  return (
+    number.toLocaleString("fa-IR") +
+    " تومان"
+  );
 }
 
 function statusLabel(status){
 
   const map = {
-    pending:"در انتظار بررسی",
-    paid:"پرداخت شده",
-    completed:"تکمیل شده",
-    cancelled:"لغو شده"
+    pending:
+      "در انتظار بررسی",
+    paid:
+      "پرداخت شده",
+    completed:
+      "تکمیل شده",
+    cancelled:
+      "لغو شده"
   };
 
-  return map[status] || status;
+  return (
+    map[status] ||
+    status
+  );
 }
 
 function escapeClient(value){
@@ -3234,6 +3916,7 @@ function notFoundPage(){
 
   return basePage(
     "صفحه پیدا نشد | دیجی‌ماریکسو",
+
     `
       <section class="hero">
 
@@ -3263,4 +3946,4 @@ function notFoundPage(){
       </section>
     `
   );
-          }
+}
