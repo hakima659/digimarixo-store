@@ -15,6 +15,10 @@ export default {
     try {
       await initDB(env);
 
+      /* =========================
+         HEALTH
+      ========================= */
+
       if (path === "/health") {
         return json({
           ok: true,
@@ -23,32 +27,78 @@ export default {
         });
       }
 
+      /* =========================
+         PRODUCTS API
+      ========================= */
+
       if (path === "/api/products" && method === "GET") {
         return json(await getProducts(env));
       }
 
-      if (path.startsWith("/api/products/") && method === "GET") {
+      if (
+        path.startsWith("/api/products/") &&
+        method === "GET"
+      ) {
         const id = path.split("/").pop();
         return json(await getProduct(env, id));
       }
 
-      if (path === "/api/orders" && method === "POST") {
+      /* =========================
+         SUPPLIERS API
+      ========================= */
+
+      if (
+        path === "/api/suppliers" &&
+        method === "GET"
+      ) {
+        return json(await getSuppliers(env));
+      }
+
+      /* =========================
+         ORDERS API
+      ========================= */
+
+      if (
+        path === "/api/orders" &&
+        method === "POST"
+      ) {
         return await createOrder(request, env);
       }
+
+      if (
+        path === "/api/orders" &&
+        method === "GET"
+      ) {
+        return json(await getOrders(env));
+      }
+
+      /* =========================
+         ACCOUNT
+      ========================= */
 
       if (path === "/account") {
         return html(accountPage());
       }
 
+      /* =========================
+         ADMIN
+      ========================= */
+
       if (path === "/admin") {
-        return html(adminPage());
+        return html(await adminPage(env));
       }
 
+      /* =========================
+         PRODUCTS
+      ========================= */
+
       if (path === "/products") {
-        const productId = url.searchParams.get("id");
+        const productId =
+          url.searchParams.get("id");
 
         if (productId) {
-          const result = await getProduct(env, productId);
+          const result =
+            await getProduct(env, productId);
 
           if (!result.ok) {
             return html(
@@ -56,10 +106,22 @@ export default {
                 "محصول پیدا نشد",
                 `
                 <section class="page-title">
-                  <span class="eyebrow">DigiMarixo</span>
-                  <h1>محصول پیدا نشد</h1>
-                  <p>محصول موردنظر در فروشگاه وجود ندارد.</p>
-                  <a class="btn primary" href="/products">
+                  <span class="eyebrow">
+                    DigiMarixo
+                  </span>
+
+                  <h1>
+                    محصول پیدا نشد
+                  </h1>
+
+                  <p>
+                    محصول موردنظر در فروشگاه وجود ندارد.
+                  </p>
+
+                  <a
+                    class="btn primary"
+                    href="/products"
+                  >
                     بازگشت به محصولات
                   </a>
                 </section>
@@ -77,24 +139,41 @@ export default {
           );
         }
 
-        return html(await productsPage(env));
+        return html(
+          await productsPage(env)
+        );
       }
+
+      /* =========================
+         CART
+      ========================= */
 
       if (path === "/cart") {
         return html(cartPage());
       }
 
-      return html(await homePage(env));
+      /* =========================
+         HOME
+      ========================= */
+
+      return html(
+        await homePage(env)
+      );
 
     } catch (error) {
-      console.error("DigiMarixo Error:", error);
+      console.error(
+        "DigiMarixo Error:",
+        error
+      );
 
       return new Response(
-        "DigiMarixo Error: " + safeError(error),
+        "DigiMarixo Error: " +
+        safeError(error),
         {
           status: 500,
           headers: {
-            "content-type": "text/plain; charset=UTF-8"
+            "content-type":
+              "text/plain; charset=UTF-8"
           }
         }
       );
@@ -109,8 +188,14 @@ export default {
 
 async function initDB(env) {
   if (!env.DB) {
-    throw new Error("D1 binding DB is not configured");
+    throw new Error(
+      "D1 binding DB is not configured"
+    );
   }
+
+  /* =========================
+     CATEGORIES
+  ========================= */
 
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS categories (
@@ -119,6 +204,27 @@ async function initDB(env) {
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `).run();
+
+  /* =========================
+     SUPPLIERS
+  ========================= */
+
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS suppliers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      phone TEXT DEFAULT '',
+      email TEXT DEFAULT '',
+      address TEXT DEFAULT '',
+      direct_shipping INTEGER DEFAULT 0,
+      active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+
+  /* =========================
+     PRODUCTS
+  ========================= */
 
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS products (
@@ -134,6 +240,90 @@ async function initDB(env) {
     )
   `).run();
 
+  /* =========================
+     PRODUCTS MIGRATION
+  ========================= */
+
+  const productColumns =
+    await env.DB
+      .prepare(
+        `PRAGMA table_info(products)`
+      )
+      .all();
+
+  const productNames =
+    new Set(
+      (productColumns.results || [])
+        .map(row => row.name)
+    );
+
+  if (!productNames.has("category")) {
+    await env.DB
+      .prepare(
+        `ALTER TABLE products
+         ADD COLUMN category TEXT DEFAULT ''`
+      )
+      .run();
+  }
+
+  if (!productNames.has("stock")) {
+    await env.DB
+      .prepare(
+        `ALTER TABLE products
+         ADD COLUMN stock INTEGER DEFAULT 0`
+      )
+      .run();
+  }
+
+  if (!productNames.has("image")) {
+    await env.DB
+      .prepare(
+        `ALTER TABLE products
+         ADD COLUMN image TEXT DEFAULT ''`
+      )
+      .run();
+  }
+
+  if (!productNames.has("active")) {
+    await env.DB
+      .prepare(
+        `ALTER TABLE products
+         ADD COLUMN active INTEGER DEFAULT 1`
+      )
+      .run();
+  }
+
+  if (!productNames.has("supplier_id")) {
+    await env.DB
+      .prepare(
+        `ALTER TABLE products
+         ADD COLUMN supplier_id INTEGER DEFAULT NULL`
+      )
+      .run();
+  }
+
+  if (!productNames.has("supplier_price")) {
+    await env.DB
+      .prepare(
+        `ALTER TABLE products
+         ADD COLUMN supplier_price INTEGER DEFAULT 0`
+      )
+      .run();
+  }
+
+  if (!productNames.has("commission")) {
+    await env.DB
+      .prepare(
+        `ALTER TABLE products
+         ADD COLUMN commission INTEGER DEFAULT 0`
+      )
+      .run();
+  }
+
+  /* =========================
+     ORDERS
+  ========================= */
+
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -147,15 +337,132 @@ async function initDB(env) {
     )
   `).run();
 
+  /* =========================
+     ORDER MIGRATION
+  ========================= */
+
+  const orderColumns =
+    await env.DB
+      .prepare(
+        `PRAGMA table_info(orders)`
+      )
+      .all();
+
+  const orderNames =
+    new Set(
+      (orderColumns.results || [])
+        .map(row => row.name)
+    );
+
+  if (!orderNames.has("supplier_id")) {
+    await env.DB
+      .prepare(
+        `ALTER TABLE orders
+         ADD COLUMN supplier_id INTEGER DEFAULT NULL`
+      )
+      .run();
+  }
+
+  if (!orderNames.has("supplier_status")) {
+    await env.DB
+      .prepare(
+        `ALTER TABLE orders
+         ADD COLUMN supplier_status TEXT DEFAULT 'جدید'`
+      )
+      .run();
+  }
+
+  if (!orderNames.has("shipping_status")) {
+    await env.DB
+      .prepare(
+        `ALTER TABLE orders
+         ADD COLUMN shipping_status TEXT DEFAULT 'در انتظار ارسال'`
+      )
+      .run();
+  }
+
+  /* =========================
+     ORDER ITEMS
+  ========================= */
+
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS order_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       order_id INTEGER NOT NULL,
       product_id INTEGER NOT NULL,
+      supplier_id INTEGER DEFAULT NULL,
       quantity INTEGER DEFAULT 1,
-      price INTEGER DEFAULT 0
+      price INTEGER DEFAULT 0,
+      supplier_price INTEGER DEFAULT 0,
+      commission INTEGER DEFAULT 0
     )
   `).run();
+
+  /* =========================
+     ORDER ITEMS MIGRATION
+  ========================= */
+
+  const orderItemColumns =
+    await env.DB
+      .prepare(
+        `PRAGMA table_info(order_items)`
+      )
+      .all();
+
+  const orderItemNames =
+    new Set(
+      (orderItemColumns.results || [])
+        .map(row => row.name)
+    );
+
+  if (!orderItemNames.has("supplier_id")) {
+    await env.DB
+      .prepare(
+        `ALTER TABLE order_items
+         ADD COLUMN supplier_id INTEGER DEFAULT NULL`
+      )
+      .run();
+  }
+
+  if (!orderItemNames.has("supplier_price")) {
+    await env.DB
+      .prepare(
+        `ALTER TABLE order_items
+         ADD COLUMN supplier_price INTEGER DEFAULT 0`
+      )
+      .run();
+  }
+
+  if (!orderItemNames.has("commission")) {
+    await env.DB
+      .prepare(
+        `ALTER TABLE order_items
+         ADD COLUMN commission INTEGER DEFAULT 0`
+      )
+      .run();
+  }
+
+  /* =========================
+     SUPPLIER ORDERS
+  ========================= */
+
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS supplier_orders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER NOT NULL,
+      supplier_id INTEGER NOT NULL,
+      status TEXT DEFAULT 'جدید',
+      shipping_status TEXT DEFAULT 'در انتظار ارسال',
+      supplier_note TEXT DEFAULT '',
+      tracking_code TEXT DEFAULT '',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+
+  /* =========================
+     REVIEWS
+  ========================= */
 
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS reviews (
@@ -168,84 +475,55 @@ async function initDB(env) {
     )
   `).run();
 
-  const columns = await env.DB
-    .prepare(`PRAGMA table_info(products)`)
-    .all();
-
-  const names = new Set(
-    (columns.results || []).map(row => row.name)
-  );
-
-  if (!names.has("category")) {
-    await env.DB
-      .prepare(
-        `ALTER TABLE products ADD COLUMN category TEXT DEFAULT ''`
-      )
-      .run();
-  }
-
-  if (!names.has("stock")) {
-    await env.DB
-      .prepare(
-        `ALTER TABLE products ADD COLUMN stock INTEGER DEFAULT 0`
-      )
-      .run();
-  }
-
-  if (!names.has("image")) {
-    await env.DB
-      .prepare(
-        `ALTER TABLE products ADD COLUMN image TEXT DEFAULT ''`
-      )
-      .run();
-  }
-
-  if (!names.has("active")) {
-    await env.DB
-      .prepare(
-        `ALTER TABLE products ADD COLUMN active INTEGER DEFAULT 1`
-      )
-      .run();
-  }
+  /* =========================
+     SEED
+  ========================= */
 
   await seedProducts(env);
 }
 
 
 /* =========================================================
-   SEED
+   SEED PRODUCTS
 ========================================================= */
 
 async function seedProducts(env) {
-  const result = await env.DB
-    .prepare(`SELECT COUNT(*) AS count FROM products`)
-    .first();
+  const result =
+    await env.DB
+      .prepare(
+        `SELECT COUNT(*) AS count
+         FROM products`
+      )
+      .first();
 
-  if (Number(result?.count || 0) > 0) {
+  if (
+    Number(result?.count || 0) > 0
+  ) {
     return;
   }
 
+  /*
+   * این محصولات فقط نمونه اولیه هستند.
+   * تا زمانی که فروشنده واقعی ثبت نشده
+   * خرید واقعی فعال نمی‌شود.
+   */
+
   const products = [
     {
-      name: "محصول دیجیتال شماره ۱",
-      description: "یک محصول دیجیتال کاربردی از فروشگاه دیجی‌ماریکسو.",
-      price: 99000,
-      category: "دیجیتال",
-      stock: 10
+      name: "محصول نمونه دیجی‌ماریکسو ۱",
+      description:
+        "محصول نمونه برای آماده‌سازی فروشگاه.",
+      price: 0,
+      category: "عمومی",
+      stock: 0
     },
     {
-      name: "محصول دیجیتال شماره ۲",
-      description: "محصول کاربردی برای استفاده روزمره.",
-      price: 149000,
-      category: "دیجیتال",
-      stock: 10
-    },
-    {
-      name: "محصول ویژه دیجی‌ماریکسو",
-      description: "یکی از محصولات ویژه فروشگاه.",
-      price: 249000,
-      category: "ویژه",
-      stock: 5
+      name: "محصول نمونه دیجی‌ماریکسو ۲",
+      description:
+        "محصول نمونه برای آماده‌سازی فروشگاه.",
+      price: 0,
+      category: "عمومی",
+      stock: 0
     }
   ];
 
@@ -260,9 +538,12 @@ async function seedProducts(env) {
           image,
           category,
           stock,
-          active
+          active,
+          supplier_id,
+          supplier_price,
+          commission
         )
-        VALUES (?, ?, ?, ?, ?, ?, 1)
+        VALUES (?, ?, ?, ?, ?, ?, 1, NULL, 0, 0)
       `)
       .bind(
         product.name,
@@ -282,26 +563,50 @@ async function seedProducts(env) {
 ========================================================= */
 
 async function getProducts(env) {
-  const result = await env.DB.prepare(`
-    SELECT
-      id,
-      name,
-      description,
-      price,
-      image,
-      category,
-      stock,
-      active,
-      created_at
-    FROM products
-    WHERE active = 1
-    ORDER BY id DESC
-  `).all();
+  const result =
+    await env.DB.prepare(`
+      SELECT
+        p.id,
+        p.name,
+        p.description,
+        p.price,
+        p.image,
+        p.category,
+        p.stock,
+        p.active,
+        p.supplier_id,
+        p.supplier_price,
+        p.commission,
+        p.created_at,
 
-  const products = (result.results || []).map(product => ({
-    ...product,
-    price: normalizePrice(product.price)
-  }));
+        s.name AS supplier_name,
+        s.direct_shipping AS supplier_direct_shipping
+
+      FROM products p
+
+      LEFT JOIN suppliers s
+        ON s.id = p.supplier_id
+
+      WHERE p.active = 1
+
+      ORDER BY p.id DESC
+    `).all();
+
+  const products =
+    (result.results || [])
+      .map(product => ({
+        ...product,
+        price:
+          normalizePrice(product.price),
+        supplier_price:
+          normalizePrice(
+            product.supplier_price
+          ),
+        commission:
+          normalizePrice(
+            product.commission
+          )
+      }));
 
   return {
     ok: true,
@@ -310,24 +615,45 @@ async function getProducts(env) {
 }
 
 
+/* =========================================================
+   SINGLE PRODUCT
+========================================================= */
+
 async function getProduct(env, id) {
-  const product = await env.DB.prepare(`
-    SELECT
-      id,
-      name,
-      description,
-      price,
-      image,
-      category,
-      stock,
-      active,
-      created_at
-    FROM products
-    WHERE id = ?
-    LIMIT 1
-  `)
-    .bind(id)
-    .first();
+  const product =
+    await env.DB
+      .prepare(`
+        SELECT
+          p.id,
+          p.name,
+          p.description,
+          p.price,
+          p.image,
+          p.category,
+          p.stock,
+          p.active,
+          p.supplier_id,
+          p.supplier_price,
+          p.commission,
+          p.created_at,
+
+          s.name AS supplier_name,
+          s.phone AS supplier_phone,
+          s.email AS supplier_email,
+          s.direct_shipping
+            AS supplier_direct_shipping
+
+        FROM products p
+
+        LEFT JOIN suppliers s
+          ON s.id = p.supplier_id
+
+        WHERE p.id = ?
+
+        LIMIT 1
+      `)
+      .bind(id)
+      .first();
 
   if (!product) {
     return {
@@ -336,7 +662,18 @@ async function getProduct(env, id) {
     };
   }
 
-  product.price = normalizePrice(product.price);
+  product.price =
+    normalizePrice(product.price);
+
+  product.supplier_price =
+    normalizePrice(
+      product.supplier_price
+    );
+
+  product.commission =
+    normalizePrice(
+      product.commission
+    );
 
   return {
     ok: true,
@@ -346,38 +683,83 @@ async function getProduct(env, id) {
 
 
 /* =========================================================
+   SUPPLIERS
+========================================================= */
+
+async function getSuppliers(env) {
+  const result =
+    await env.DB
+      .prepare(`
+        SELECT
+          id,
+          name,
+          phone,
+          email,
+          address,
+          direct_shipping,
+          active,
+          created_at
+        FROM suppliers
+        ORDER BY id DESC
+      `)
+      .all();
+
+  return {
+    ok: true,
+    suppliers:
+      result.results || []
+  };
+}
+
+
+/* =========================================================
    CREATE ORDER
 ========================================================= */
 
-async function createOrder(request, env) {
+async function createOrder(
+  request,
+  env
+) {
   let data;
 
   try {
-    data = await request.json();
+    data =
+      await request.json();
   } catch {
     return json(
       {
         ok: false,
-        error: "اطلاعات سفارش نامعتبر است"
+        error:
+          "اطلاعات سفارش نامعتبر است"
       },
       400
     );
   }
 
   const customerName =
-    String(data.customer_name || "").trim();
+    String(
+      data.customer_name || ""
+    ).trim();
 
   const customerEmail =
-    String(data.customer_email || "").trim();
+    String(
+      data.customer_email || ""
+    ).trim();
 
   const customerPhone =
-    String(data.customer_phone || "").trim();
+    String(
+      data.customer_phone || ""
+    ).trim();
 
   const address =
-    String(data.address || "").trim();
+    String(
+      data.address || ""
+    ).trim();
 
   const items =
-    Array.isArray(data.items) ? data.items : [];
+    Array.isArray(data.items)
+      ? data.items
+      : [];
 
   if (!customerName) {
     return json(
@@ -389,130 +771,349 @@ async function createOrder(request, env) {
     );
   }
 
+  if (!customerPhone) {
+    return json(
+      {
+        ok: false,
+        error: "شماره تماس الزامی است"
+      },
+      400
+    );
+  }
+
+  if (!address) {
+    return json(
+      {
+        ok: false,
+        error: "آدرس الزامی است"
+      },
+      400
+    );
+  }
+
   if (!items.length) {
     return json(
       {
         ok: false,
-        error: "سبد خرید خالی است"
+        error:
+          "سبد خرید خالی است"
       },
       400
     );
   }
 
   let total = 0;
+
   const orderItems = [];
+
+  /*
+   * فروشنده‌ها را برای تفکیک سفارش نگه می‌داریم.
+   */
+  const supplierGroups =
+    new Map();
 
   for (const item of items) {
     const productId =
-      Number(item.product_id ?? item.id);
+      Number(
+        item.product_id ??
+        item.id
+      );
 
     const quantity =
-      Math.max(1, Number(item.quantity || 1));
+      Math.max(
+        1,
+        Number(
+          item.quantity || 1
+        )
+      );
 
-    if (!Number.isFinite(productId)) {
+    if (
+      !Number.isFinite(
+        productId
+      )
+    ) {
       return json(
         {
           ok: false,
-          error: "شناسه محصول نامعتبر است"
+          error:
+            "شناسه محصول نامعتبر است"
         },
         400
       );
     }
 
-    const product = await env.DB.prepare(`
-      SELECT
-        id,
-        price,
-        stock,
-        active
-      FROM products
-      WHERE id = ?
-      LIMIT 1
-    `)
-      .bind(productId)
-      .first();
-
-    if (!product || Number(product.active) !== 1) {
+    if (
+      !Number.isFinite(
+        quantity
+      ) ||
+      quantity < 1
+    ) {
       return json(
         {
           ok: false,
-          error: "یکی از محصولات موجود نیست"
+          error:
+            "تعداد محصول نامعتبر است"
         },
         400
       );
     }
 
-    if (Number(product.stock) < quantity) {
+    const product =
+      await env.DB
+        .prepare(`
+          SELECT
+            p.id,
+            p.name,
+            p.price,
+            p.stock,
+            p.active,
+            p.supplier_id,
+            p.supplier_price,
+            p.commission,
+
+            s.name
+              AS supplier_name,
+
+            s.phone
+              AS supplier_phone,
+
+            s.direct_shipping
+              AS supplier_direct_shipping,
+
+            s.active
+              AS supplier_active
+
+          FROM products p
+
+          LEFT JOIN suppliers s
+            ON s.id = p.supplier_id
+
+          WHERE p.id = ?
+
+          LIMIT 1
+        `)
+        .bind(productId)
+        .first();
+
+    if (
+      !product ||
+      Number(product.active) !== 1
+    ) {
       return json(
         {
           ok: false,
-          error: "موجودی محصول کافی نیست"
+          error:
+            "یکی از محصولات موجود نیست"
+        },
+        400
+      );
+    }
+
+    if (
+      Number(product.stock) <
+      quantity
+    ) {
+      return json(
+        {
+          ok: false,
+          error:
+            "موجودی محصول کافی نیست"
+        },
+        400
+      );
+    }
+
+    /*
+     * بدون فروشنده واقعی
+     * و بدون تأیید ارسال مستقیم
+     * سفارش اجازه ثبت ندارد.
+     */
+    if (
+      !product.supplier_id
+    ) {
+      return json(
+        {
+          ok: false,
+          error:
+            "فروشنده این محصول هنوز مشخص نشده است."
+        },
+        400
+      );
+    }
+
+    if (
+      Number(
+        product.supplier_active
+      ) !== 1
+    ) {
+      return json(
+        {
+          ok: false,
+          error:
+            "فروشنده این محصول فعال نیست."
+        },
+        400
+      );
+    }
+
+    if (
+      Number(
+        product.supplier_direct_shipping
+      ) !== 1
+    ) {
+      return json(
+        {
+          ok: false,
+          error:
+            "فروشنده این محصول هنوز ارسال مستقیم به مشتری را تأیید نکرده است."
         },
         400
       );
     }
 
     const price =
-      normalizePrice(product.price);
+      normalizePrice(
+        product.price
+      );
 
-    total += price * quantity;
+    const supplierPrice =
+      normalizePrice(
+        product.supplier_price
+      );
 
-    orderItems.push({
+    const commission =
+      normalizePrice(
+        product.commission
+      );
+
+    /*
+     * اگر قیمت فروش صفر باشد،
+     * سفارش واقعی نباید ثبت شود.
+     */
+    if (price <= 0) {
+      return json(
+        {
+          ok: false,
+          error:
+            "قیمت این محصول هنوز تعیین نشده است."
+        },
+        400
+      );
+    }
+
+    total +=
+      price * quantity;
+
+    const orderItem = {
       productId,
+      supplierId:
+        Number(
+          product.supplier_id
+        ),
       quantity,
-      price
-    });
+      price,
+      supplierPrice,
+      commission
+    };
+
+    orderItems.push(
+      orderItem
+    );
+
+    /*
+     * تفکیک محصولات بر اساس فروشنده
+     */
+    if (
+      !supplierGroups.has(
+        orderItem.supplierId
+      )
+    ) {
+      supplierGroups.set(
+        orderItem.supplierId,
+        []
+      );
+    }
+
+    supplierGroups
+      .get(
+        orderItem.supplierId
+      )
+      .push(orderItem);
   }
 
-  const order = await env.DB.prepare(`
-    INSERT INTO orders
-    (
-      customer_name,
-      customer_email,
-      customer_phone,
-      address,
-      total,
-      status
-    )
-    VALUES (?, ?, ?, ?, ?, ?)
-  `)
-    .bind(
-      customerName,
-      customerEmail,
-      customerPhone,
-      address,
-      total,
-      "در حال بررسی"
-    )
-    .run();
+  /* =========================
+     CREATE MAIN ORDER
+  ========================= */
+
+  const order =
+    await env.DB
+      .prepare(`
+        INSERT INTO orders
+        (
+          customer_name,
+          customer_email,
+          customer_phone,
+          address,
+          total,
+          status,
+          supplier_status,
+          shipping_status
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+      .bind(
+        customerName,
+        customerEmail,
+        customerPhone,
+        address,
+        total,
+        "در حال بررسی",
+        "در انتظار فروشنده",
+        "در انتظار ارسال"
+      )
+      .run();
 
   const orderId =
     order.meta.last_row_id;
 
-  for (const item of orderItems) {
-    await env.DB.prepare(`
-      INSERT INTO order_items
-      (
-        order_id,
-        product_id,
-        quantity,
-        price
-      )
-      VALUES (?, ?, ?, ?)
-    `)
+  /* =========================
+     ORDER ITEMS
+  ========================= */
+
+  for (
+    const item of orderItems
+  ) {
+    await env.DB
+      .prepare(`
+        INSERT INTO order_items
+        (
+          order_id,
+          product_id,
+          supplier_id,
+          quantity,
+          price,
+          supplier_price,
+          commission
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `)
       .bind(
         orderId,
         item.productId,
+        item.supplierId,
         item.quantity,
-        item.price
+        item.price,
+        item.supplierPrice,
+        item.commission
       )
       .run();
 
-    await env.DB.prepare(`
-      UPDATE products
-      SET stock = stock - ?
-      WHERE id = ?
-    `)
+    await env.DB
+      .prepare(`
+        UPDATE products
+        SET stock = stock - ?
+        WHERE id = ?
+      `)
       .bind(
         item.quantity,
         item.productId
@@ -520,11 +1121,78 @@ async function createOrder(request, env) {
       .run();
   }
 
+  /* =========================
+     SUPPLIER ORDERS
+  ========================= */
+
+  for (
+    const [
+      supplierId,
+      supplierItems
+    ]
+    of supplierGroups
+  ) {
+    await env.DB
+      .prepare(`
+        INSERT INTO supplier_orders
+        (
+          order_id,
+          supplier_id,
+          status,
+          shipping_status
+        )
+        VALUES (?, ?, ?, ?)
+      `)
+      .bind(
+        orderId,
+        supplierId,
+        "جدید",
+        "در انتظار ارسال"
+      )
+      .run();
+  }
+
   return json({
     ok: true,
     order_id: orderId,
-    total
+    total,
+    suppliers:
+      Array.from(
+        supplierGroups.keys()
+      ).length
   });
+}
+
+
+/* =========================================================
+   ORDERS
+========================================================= */
+
+async function getOrders(env) {
+  const result =
+    await env.DB
+      .prepare(`
+        SELECT
+          id,
+          customer_name,
+          customer_email,
+          customer_phone,
+          address,
+          total,
+          status,
+          supplier_status,
+          shipping_status,
+          created_at
+        FROM orders
+        ORDER BY id DESC
+      `)
+      .all();
+
+  return {
+    ok: true,
+    orders:
+      result.results || []
+  };
 }
 
 
@@ -533,70 +1201,109 @@ async function createOrder(request, env) {
 ========================================================= */
 
 async function homePage(env) {
-  const data = await getProducts(env);
-  const products = data.products || [];
+  const data =
+    await getProducts(env);
 
-  const productCards = products.length
-    ? products.slice(0, 6).map(productCard).join("")
-    : `
-      <div class="empty">
-        هنوز محصولی در فروشگاه ثبت نشده است.
-      </div>
-    `;
+  const products =
+    data.products || [];
+
+  const productCards =
+    products.length
+      ? products
+          .slice(0, 6)
+          .map(productCard)
+          .join("")
+      : `
+        <div class="empty">
+          هنوز محصولی در فروشگاه ثبت نشده است.
+        </div>
+      `;
 
   return layout(
     "خانه",
     `
     <section class="hero">
+
       <div class="hero-content">
 
-        <span class="badge">دیجی‌ماریکسو</span>
+        <span class="badge">
+          دیجی‌ماریکسو
+        </span>
 
         <h1>
           فروشگاه دیجیتال
-          <strong>دیجی‌ماریکسو</strong>
+          <strong>
+            دیجی‌ماریکسو
+          </strong>
         </h1>
 
         <p>
-          خرید و دسترسی آسان به محصولات دیجیتال
+          خرید و دسترسی آسان به محصولات
           با تجربه‌ای ساده، سریع و مطمئن.
         </p>
 
         <div class="hero-actions">
-          <a class="btn primary" href="/products">
+
+          <a
+            class="btn primary"
+            href="/products"
+          >
             محصولات ویژه
           </a>
 
-          <a class="btn secondary" href="/account">
+          <a
+            class="btn secondary"
+            href="/account"
+          >
             حساب کاربری
           </a>
+
         </div>
 
       </div>
 
       <div class="hero-card">
-        <div class="hero-icon">◆</div>
 
-        <h3>دیجی‌ماریکسو</h3>
+        <div class="hero-icon">
+          ◆
+        </div>
+
+        <h3>
+          دیجی‌ماریکسو
+        </h3>
 
         <p>
           انتخاب، خرید و مدیریت محصولات
           در یک فروشگاه مدرن.
         </p>
+
       </div>
+
     </section>
 
     <section class="section">
 
       <div class="section-head">
+
         <div>
-          <span class="eyebrow">محصولات</span>
-          <h2>محصولات منتخب</h2>
+
+          <span class="eyebrow">
+            محصولات
+          </span>
+
+          <h2>
+            محصولات منتخب
+          </h2>
+
         </div>
 
-        <a href="/products" class="text-link">
+        <a
+          href="/products"
+          class="text-link"
+        >
           مشاهده همه
         </a>
+
       </div>
 
       <div class="products-grid">
@@ -605,38 +1312,75 @@ async function homePage(env) {
 
     </section>
 
-    <section class="features" id="features">
+    <section
+      class="features"
+      id="features"
+    >
 
       <div class="feature">
-        <div class="feature-icon">⚡</div>
-        <h3>سریع</h3>
+
+        <div class="feature-icon">
+          ⚡
+        </div>
+
+        <h3>
+          سریع
+        </h3>
+
         <p>
           دسترسی آسان و سریع به محصولات.
         </p>
+
       </div>
 
       <div class="feature">
-        <div class="feature-icon">🔒</div>
-        <h3>مطمئن</h3>
+
+        <div class="feature-icon">
+          🔒
+        </div>
+
+        <h3>
+          مطمئن
+        </h3>
+
         <p>
-          مدیریت سفارش‌ها و اطلاعات در یک محیط امن.
+          مدیریت سفارش‌ها و اطلاعات
+          در یک محیط امن.
         </p>
+
       </div>
 
       <div class="feature">
-        <div class="feature-icon">◆</div>
-        <h3>دیجیتال</h3>
+
+        <div class="feature-icon">
+          ◆
+        </div>
+
+        <h3>
+          دیجیتال
+        </h3>
+
         <p>
-          تمرکز فروشگاه بر محصولات دیجیتال و کاربردی.
+          تمرکز فروشگاه بر محصولات
+          و خدمات کاربردی.
         </p>
+
       </div>
 
       <div class="feature">
-        <div class="feature-icon">✓</div>
-        <h3>ساده</h3>
+
+        <div class="feature-icon">
+          ✓
+        </div>
+
+        <h3>
+          ساده
+        </h3>
+
         <p>
           رابط کاربری ساده برای خرید راحت‌تر.
         </p>
+
       </div>
 
     </section>
@@ -644,19 +1388,26 @@ async function homePage(env) {
     <section class="promo">
 
       <div>
-        <span class="eyebrow">DigiMarixo</span>
+
+        <span class="eyebrow">
+          DigiMarixo
+        </span>
 
         <h2>
           همه‌چیز برای یک خرید ساده
         </h2>
 
         <p>
-          محصولات را بررسی کنید و از طریق
-          حساب کاربری سفارشات خود را مدیریت کنید.
+          محصولات را بررسی کنید و
+          سفارش خود را مدیریت کنید.
         </p>
+
       </div>
 
-      <a class="btn orange" href="/products">
+      <a
+        class="btn orange"
+        href="/products"
+      >
         شروع خرید
       </a>
 
@@ -671,15 +1422,19 @@ async function homePage(env) {
 ========================================================= */
 
 async function productsPage(env) {
-  const data = await getProducts(env);
+  const data =
+    await getProducts(env);
 
-  const cards = data.products?.length
-    ? data.products.map(productCard).join("")
-    : `
-      <div class="empty">
-        محصولی برای نمایش وجود ندارد.
-      </div>
-    `;
+  const cards =
+    data.products?.length
+      ? data.products
+          .map(productCard)
+          .join("")
+      : `
+        <div class="empty">
+          محصولی برای نمایش وجود ندارد.
+        </div>
+      `;
 
   return layout(
     "محصولات",
@@ -695,7 +1450,8 @@ async function productsPage(env) {
       </h1>
 
       <p>
-        محصولات موجود در دیجی‌ماریکسو را مشاهده کنید.
+        محصولات موجود در دیجی‌ماریکسو
+        را مشاهده کنید.
       </p>
 
     </section>
@@ -716,25 +1472,46 @@ async function productsPage(env) {
    PRODUCT DETAIL
 ========================================================= */
 
-function productDetailPage(product) {
-  const image = product.image
-    ? `
-      <img
-        src="${escapeAttr(product.image)}"
-        alt="${escapeAttr(product.name)}"
-      >
-    `
-    : `
-      <div class="product-placeholder large">
-        ◆
-      </div>
-    `;
+function productDetailPage(
+  product
+) {
+  const image =
+    product.image
+      ? `
+        <img
+          src="${escapeAttr(
+            product.image
+          )}"
+          alt="${escapeAttr(
+            product.name
+          )}"
+        >
+      `
+      : `
+        <div class="product-placeholder large">
+          ◆
+        </div>
+      `;
 
   const stock =
-    Number(product.stock || 0);
+    Number(
+      product.stock || 0
+    );
 
   const price =
-    normalizePrice(product.price);
+    normalizePrice(
+      product.price
+    );
+
+  const canBuy =
+    stock > 0 &&
+    Number(
+      product.supplier_id
+    ) > 0 &&
+    Number(
+      product.supplier_direct_shipping
+    ) === 1 &&
+    price > 0;
 
   return `
     <section class="product-detail">
@@ -747,20 +1524,22 @@ function productDetailPage(product) {
 
         <span class="product-category">
           ${escapeHTML(
-            product.category || "دیجیتال"
+            product.category ||
+            "عمومی"
           )}
         </span>
 
         <h1>
           ${escapeHTML(
-            product.name || "محصول"
+            product.name ||
+            "محصول"
           )}
         </h1>
 
         <p class="detail-description">
           ${escapeHTML(
             product.description ||
-            "محصول دیجیتال دیجی‌ماریکسو"
+            "محصول دیجی‌ماریکسو"
           )}
         </p>
 
@@ -769,19 +1548,33 @@ function productDetailPage(product) {
         </div>
 
         <div class="detail-stock">
+
           ${
             stock > 0
-              ? `موجودی: ${formatNumber(stock)}`
-              : "ناموجود"
+              ? `
+                موجودی:
+                ${formatNumber(stock)}
+              `
+              : `
+                ناموجود
+              `
           }
+
         </div>
 
         ${
-          stock > 0
+          canBuy
             ? `
               <button
                 class="btn orange"
-                onclick="addToCart(${Number(product.id)}, '${escapeJS(product.name || "محصول")}', ${price})"
+                onclick="addToCart(
+                  ${Number(product.id)},
+                  '${escapeJS(
+                    product.name ||
+                    "محصول"
+                  )}',
+                  ${price}
+                )"
               >
                 افزودن به سبد خرید
               </button>
@@ -791,8 +1584,19 @@ function productDetailPage(product) {
                 class="btn disabled"
                 disabled
               >
-                ناموجود
+                فعلاً قابل خرید نیست
               </button>
+
+              <p
+                style="
+                  color:#64748b;
+                  font-size:13px;
+                  margin-top:12px;
+                "
+              >
+                این محصول هنوز برای
+                فروش واقعی فعال نشده است.
+              </p>
             `
         }
 
@@ -814,39 +1618,64 @@ function productDetailPage(product) {
    PRODUCT CARD
 ========================================================= */
 
-function productCard(product) {
+function productCard(
+  product
+) {
   const id =
-    Number(product.id || 0);
+    Number(
+      product.id || 0
+    );
 
   const name =
     escapeHTML(
-      product.name || "محصول"
+      product.name ||
+      "محصول"
     );
 
   const description =
     escapeHTML(
       product.description ||
-      "محصول دیجیتال دیجی‌ماریکسو"
+      "محصول دیجی‌ماریکسو"
     );
 
   const price =
-    normalizePrice(product.price);
+    normalizePrice(
+      product.price
+    );
 
   const stock =
-    Number(product.stock || 0);
+    Number(
+      product.stock || 0
+    );
 
-  const image = product.image
-    ? `
-      <img
-        src="${escapeAttr(product.image)}"
-        alt="${escapeAttr(product.name || "محصول")}"
-      >
-    `
-    : `
-      <div class="product-placeholder">
-        ◆
-      </div>
-    `;
+  const canBuy =
+    stock > 0 &&
+    Number(
+      product.supplier_id
+    ) > 0 &&
+    Number(
+      product.supplier_direct_shipping
+    ) === 1 &&
+    price > 0;
+
+  const image =
+    product.image
+      ? `
+        <img
+          src="${escapeAttr(
+            product.image
+          )}"
+          alt="${escapeAttr(
+            product.name ||
+            "محصول"
+          )}"
+        >
+      `
+      : `
+        <div class="product-placeholder">
+          ◆
+        </div>
+      `;
 
   return `
     <article class="product-card">
@@ -859,7 +1688,8 @@ function productCard(product) {
 
         <span class="product-category">
           ${escapeHTML(
-            product.category || "دیجیتال"
+            product.category ||
+            "عمومی"
           )}
         </span>
 
@@ -897,11 +1727,18 @@ function productCard(product) {
           </a>
 
           ${
-            stock > 0
+            canBuy
               ? `
                 <button
                   class="btn small orange"
-                  onclick="addToCart(${id}, '${escapeJS(product.name || "محصول")}', ${price})"
+                  onclick="addToCart(
+                    ${id},
+                    '${escapeJS(
+                      product.name ||
+                      "محصول"
+                    )}',
+                    ${price}
+                  )"
                 >
                   افزودن به سبد
                 </button>
@@ -939,10 +1776,13 @@ function accountPage() {
         </h1>
 
         <p>
-          مدیریت حساب و سفارش‌های دیجی‌ماریکسو
+          مدیریت حساب و سفارش‌های
+          دیجی‌ماریکسو
         </p>
 
-        <form onsubmit="return false;">
+        <form
+          onsubmit="return false;"
+        >
 
           <label>
             نام کاربری یا ایمیل
@@ -967,7 +1807,9 @@ function accountPage() {
           <button
             class="btn primary"
             type="button"
-            onclick="alert('بخش ورود در حال آماده‌سازی است.')"
+            onclick="alert(
+              'بخش ورود در حال آماده‌سازی است.'
+            )"
           >
             ورود
           </button>
@@ -997,7 +1839,9 @@ function accountPage() {
           ایجاد حساب
         </h2>
 
-        <form onsubmit="return false;">
+        <form
+          onsubmit="return false;"
+        >
 
           <label>
             نام کاربری
@@ -1029,7 +1873,9 @@ function accountPage() {
           <button
             class="btn secondary"
             type="button"
-            onclick="alert('ثبت‌نام در حال آماده‌سازی است.')"
+            onclick="alert(
+              'ثبت‌نام در حال آماده‌سازی است.'
+            )"
           >
             ایجاد حساب
           </button>
@@ -1071,9 +1917,11 @@ function cartPage() {
     <section class="cart-box">
 
       <div id="cart-items">
+
         <div class="empty">
           سبد خرید شما خالی است.
         </div>
+
       </div>
 
       <div class="cart-total">
@@ -1116,7 +1964,34 @@ function cartPage() {
    ADMIN
 ========================================================= */
 
-function adminPage() {
+async function adminPage(env) {
+  const products =
+    await env.DB
+      .prepare(`
+        SELECT
+          COUNT(*) AS count
+        FROM products
+      `)
+      .first();
+
+  const suppliers =
+    await env.DB
+      .prepare(`
+        SELECT
+          COUNT(*) AS count
+        FROM suppliers
+      `)
+      .first();
+
+  const orders =
+    await env.DB
+      .prepare(`
+        SELECT
+          COUNT(*) AS count
+        FROM orders
+      `)
+      .first();
+
   return layout(
     "مدیریت",
     `
@@ -1139,43 +2014,86 @@ function adminPage() {
     <section class="admin-grid">
 
       <div class="admin-card">
+
         <strong>
           محصولات
         </strong>
 
         <span>
-          مدیریت محصولات فروشگاه
+          ${formatNumber(
+            products?.count || 0
+          )}
+          محصول ثبت شده
         </span>
+
       </div>
 
       <div class="admin-card">
+
+        <strong>
+          فروشندگان
+        </strong>
+
+        <span>
+          ${formatNumber(
+            suppliers?.count || 0
+          )}
+          فروشنده ثبت شده
+        </span>
+
+      </div>
+
+      <div class="admin-card">
+
         <strong>
           سفارش‌ها
         </strong>
 
         <span>
-          مشاهده و مدیریت سفارش‌ها
+          ${formatNumber(
+            orders?.count || 0
+          )}
+          سفارش ثبت شده
         </span>
+
       </div>
 
       <div class="admin-card">
+
         <strong>
-          دسته‌بندی‌ها
+          ارسال
         </strong>
 
         <span>
-          مدیریت دسته‌بندی محصولات
+          ارسال کالا توسط فروشنده انجام می‌شود.
         </span>
+
       </div>
 
       <div class="admin-card">
+
+        <strong>
+          مدل فروش
+        </strong>
+
+        <span>
+          دیجی‌ماریکسو کالا را انبار یا ارسال نمی‌کند.
+        </span>
+
+      </div>
+
+      <div class="admin-card">
+
         <strong>
           مدیر
         </strong>
 
         <span>
-          ${escapeHTML(DEFAULT_ADMIN_USERNAME)}
+          ${escapeHTML(
+            DEFAULT_ADMIN_USERNAME
+          )}
         </span>
+
       </div>
 
     </section>
@@ -1188,10 +2106,17 @@ function adminPage() {
    LAYOUT
 ========================================================= */
 
-function layout(title, content) {
+function layout(
+  title,
+  content
+) {
   return `
 <!DOCTYPE html>
-<html lang="fa" dir="rtl">
+
+<html
+  lang="fa"
+  dir="rtl"
+>
 
 <head>
 
@@ -1208,7 +2133,9 @@ function layout(title, content) {
   >
 
   <title>
-    ${escapeHTML(title)} | ${STORE_NAME}
+    ${escapeHTML(title)}
+    |
+    ${STORE_NAME}
   </title>
 
   <style>
@@ -1254,9 +2181,11 @@ function layout(title, content) {
       position: sticky;
       top: 0;
       z-index: 50;
-      background: rgba(15, 23, 42, .96);
+      background:
+        rgba(15, 23, 42, .96);
       border-bottom:
-        1px solid rgba(255,255,255,.08);
+        1px solid
+        rgba(255,255,255,.08);
       backdrop-filter: blur(12px);
     }
 
@@ -1311,7 +2240,8 @@ function layout(title, content) {
     }
 
     nav a:hover {
-      background: rgba(255,255,255,.08);
+      background:
+        rgba(255,255,255,.08);
       color: white;
     }
 
@@ -1398,7 +2328,8 @@ function layout(title, content) {
       background:
         rgba(255,255,255,.10);
       border:
-        1px solid rgba(255,255,255,.14);
+        1px solid
+        rgba(255,255,255,.14);
     }
 
     .hero-icon {
@@ -2022,7 +2953,10 @@ function layout(title, content) {
 
   <div class="container nav">
 
-    <a class="brand" href="/">
+    <a
+      class="brand"
+      href="/"
+    >
 
       <span class="brand-icon">
         ◆
@@ -2081,14 +3015,18 @@ function layout(title, content) {
       </div>
 
       <div class="footer-note">
-        ${STORE_EN} — فروشگاه دیجیتال
+        ${STORE_EN}
+        — فروشگاه دیجیتال
       </div>
 
     </div>
 
     <div class="footer-note">
+
       © ${new Date().getFullYear()}
+
       ${STORE_NAME}
+
     </div>
 
   </div>
@@ -2118,23 +3056,34 @@ function layout(title, content) {
   }
 
 
-  function addToCart(id, name, price) {
+  function addToCart(
+    id,
+    name,
+    price
+  ) {
 
-    const cart = getCart();
+    const cart =
+      getCart();
 
-    const existing = cart.find(
-      item =>
-        Number(item.id) === Number(id)
-    );
+    const existing =
+      cart.find(
+        item =>
+          Number(item.id) ===
+          Number(id)
+      );
 
     if (existing) {
       existing.quantity += 1;
     } else {
       cart.push({
-        id: Number(id),
-        name: name,
-        price: Number(price) || 0,
-        quantity: 1
+        id:
+          Number(id),
+        name:
+          name,
+        price:
+          Number(price) || 0,
+        quantity:
+          1
       });
     }
 
@@ -2149,22 +3098,23 @@ function layout(title, content) {
 
 
   function formatNumber(value) {
-    const number = Number(value);
 
-    if (!Number.isFinite(number)) {
+    const number =
+      Number(value);
+
+    if (
+      !Number.isFinite(
+        number
+      )
+    ) {
       return "۰";
     }
 
-    return number.toLocaleString("fa-IR");
+    return number.toLocaleString(
+      "fa-IR"
+    );
   }
 
-
-  /*
-   * مهم:
-   * این بخش عمداً بدون template literal نوشته شده
-   * تا داخل layout() خطای Unterminated string literal
-   * ایجاد نشود.
-   */
 
   function renderCart() {
 
@@ -2178,11 +3128,15 @@ function layout(title, content) {
         "cart-total"
       );
 
-    if (!box || !totalBox) {
+    if (
+      !box ||
+      !totalBox
+    ) {
       return;
     }
 
-    const cart = getCart();
+    const cart =
+      getCart();
 
     if (!cart.length) {
 
@@ -2201,85 +3155,105 @@ function layout(title, content) {
 
     const rows = [];
 
-    cart.forEach(function(item, index) {
+    cart.forEach(
+      function(
+        item,
+        index
+      ) {
 
-      const price =
-        Number(item.price);
+        const price =
+          Number(
+            item.price
+          );
 
-      const quantity =
-        Number(item.quantity);
+        const quantity =
+          Number(
+            item.quantity
+          );
 
-      const safePrice =
-        Number.isFinite(price)
-          ? price
-          : 0;
+        const safePrice =
+          Number.isFinite(
+            price
+          )
+            ? price
+            : 0;
 
-      const safeQuantity =
-        Number.isFinite(quantity) &&
-        quantity > 0
-          ? quantity
-          : 1;
+        const safeQuantity =
+          Number.isFinite(
+            quantity
+          ) &&
+          quantity > 0
+            ? quantity
+            : 1;
 
-      const line =
-        safePrice * safeQuantity;
+        const line =
+          safePrice *
+          safeQuantity;
 
-      total += line;
+        total += line;
 
-      rows.push(
-        '<div ' +
-        'style="' +
-        'padding:15px 0;' +
-        'border-bottom:1px solid #e2e8f0;' +
-        'display:flex;' +
-        'justify-content:space-between;' +
-        'gap:15px;' +
-        'align-items:center' +
-        '">' +
+        rows.push(
+          '<div ' +
+          'style="' +
+          'padding:15px 0;' +
+          'border-bottom:1px solid #e2e8f0;' +
+          'display:flex;' +
+          'justify-content:space-between;' +
+          'gap:15px;' +
+          'align-items:center' +
+          '">' +
 
-          '<div>' +
+            '<div>' +
 
-            '<strong>' +
-              escapeClientHTML(item.name) +
-            '</strong>' +
+              '<strong>' +
+                escapeClientHTML(
+                  item.name
+                ) +
+              '</strong>' +
 
-            '<div ' +
-            'style="' +
-            'color:#64748b;' +
-            'font-size:13px' +
-            '">' +
+              '<div ' +
+              'style="' +
+              'color:#64748b;' +
+              'font-size:13px' +
+              '">' +
 
-              'تعداد: ' +
-              formatNumber(safeQuantity) +
+                'تعداد: ' +
+                formatNumber(
+                  safeQuantity
+                ) +
+
+              '</div>' +
 
             '</div>' +
 
-          '</div>' +
+            '<div style="text-align:left">' +
 
-          '<div style="text-align:left">' +
+              '<strong>' +
+                formatNumber(
+                  line
+                ) +
+                ' تومان' +
+              '</strong>' +
 
-            '<strong>' +
-              formatNumber(line) +
-              ' تومان' +
-            '</strong>' +
+              '<br>' +
 
-            '<br>' +
+              '<button ' +
+              'class="btn small orange" ' +
+              'onclick="removeCartItem(' +
+              index +
+              ')"' +
+              '>' +
 
-            '<button ' +
-            'class="btn small orange" ' +
-            'onclick="removeCartItem(' +
-            index +
-            ')"' +
-            '>' +
+                'حذف' +
 
-              'حذف' +
+              '</button>' +
 
-            '</button>' +
+            '</div>' +
 
-          '</div>' +
-
-        '</div>'
-      );
-    });
+          '</div>'
+        );
+      }
+    );
 
     box.innerHTML =
       rows.join("");
@@ -2290,11 +3264,17 @@ function layout(title, content) {
   }
 
 
-  function removeCartItem(index) {
+  function removeCartItem(
+    index
+  ) {
 
-    const cart = getCart();
+    const cart =
+      getCart();
 
-    cart.splice(index, 1);
+    cart.splice(
+      index,
+      1
+    );
 
     saveCart(cart);
 
@@ -2304,30 +3284,49 @@ function layout(title, content) {
 
   async function checkoutCart() {
 
-    const cart = getCart();
+    const cart =
+      getCart();
 
     if (!cart.length) {
+
       alert(
         "سبد خرید شما خالی است."
       );
+
       return;
     }
 
     const customerName =
-      prompt("نام و نام خانوادگی:");
+      prompt(
+        "نام و نام خانوادگی:"
+      );
 
     if (!customerName) {
       return;
     }
 
     const customerPhone =
-      prompt("شماره تماس:");
+      prompt(
+        "شماره تماس:"
+      );
+
+    if (!customerPhone) {
+      return;
+    }
 
     const customerEmail =
-      prompt("ایمیل:");
+      prompt(
+        "ایمیل:"
+      );
 
     const address =
-      prompt("آدرس:");
+      prompt(
+        "آدرس کامل:"
+      );
+
+    if (!address) {
+      return;
+    }
 
     try {
 
@@ -2335,35 +3334,45 @@ function layout(title, content) {
         await fetch(
           "/api/orders",
           {
-            method: "POST",
+            method:
+              "POST",
+
             headers: {
               "content-type":
                 "application/json"
             },
-            body: JSON.stringify({
-              customer_name:
-                customerName,
 
-              customer_phone:
-                customerPhone || "",
+            body:
+              JSON.stringify({
+                customer_name:
+                  customerName,
 
-              customer_email:
-                customerEmail || "",
+                customer_phone:
+                  customerPhone,
 
-              address:
-                address || "",
+                customer_email:
+                  customerEmail ||
+                  "",
 
-              items:
-                cart.map(item => ({
-                  product_id:
-                    Number(item.id),
+                address:
+                  address,
 
-                  quantity:
-                    Number(
-                      item.quantity || 1
-                    )
-                }))
-            })
+                items:
+                  cart.map(
+                    item => ({
+                      product_id:
+                        Number(
+                          item.id
+                        ),
+
+                      quantity:
+                        Number(
+                          item.quantity ||
+                          1
+                        )
+                    })
+                  )
+              })
           }
         );
 
@@ -2387,7 +3396,8 @@ function layout(title, content) {
       renderCart();
 
       alert(
-        "سفارش با موفقیت ثبت شد. شماره سفارش: " +
+        "سفارش با موفقیت ثبت شد. " +
+        "شماره سفارش: " +
         result.order_id
       );
 
@@ -2397,21 +3407,40 @@ function layout(title, content) {
         "خطا در ثبت سفارش."
       );
 
-      console.error(error);
+      console.error(
+        error
+      );
     }
   }
 
 
-  function escapeClientHTML(value) {
+  function escapeClientHTML(
+    value
+  ) {
 
     return String(
       value ?? ""
     )
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
+      .replaceAll(
+        "&",
+        "&amp;"
+      )
+      .replaceAll(
+        "<",
+        "&lt;"
+      )
+      .replaceAll(
+        ">",
+        "&gt;"
+      )
+      .replaceAll(
+        '"',
+        "&quot;"
+      )
+      .replaceAll(
+        "'",
+        "&#039;"
+      );
   }
 
 
@@ -2420,6 +3449,7 @@ function layout(title, content) {
 </script>
 
 </body>
+
 </html>
   `;
 }
@@ -2429,7 +3459,10 @@ function layout(title, content) {
    RESPONSE HELPERS
 ========================================================= */
 
-function html(content, status = 200) {
+function html(
+  content,
+  status = 200
+) {
   return new Response(
     content,
     {
@@ -2446,7 +3479,10 @@ function html(content, status = 200) {
 }
 
 
-function json(data, status = 200) {
+function json(
+  data,
+  status = 200
+) {
   return new Response(
     JSON.stringify(data),
     {
@@ -2467,20 +3503,26 @@ function json(data, status = 200) {
    HELPERS
 ========================================================= */
 
-function normalizePrice(value) {
+function normalizePrice(
+  value
+) {
 
   const normalized =
-    String(value ?? "")
+    String(
+      value ?? ""
+    )
       .trim()
       .replace(
         /[۰-۹]/g,
         d =>
-          "۰۱۲۳۴۵۶۷۸۹".indexOf(d)
+          "۰۱۲۳۴۵۶۷۸۹"
+            .indexOf(d)
       )
       .replace(
         /[٠-٩]/g,
         d =>
-          "٠١٢٣٤٥٦٧٨٩".indexOf(d)
+          "٠١٢٣٤٥٦٧٨٩"
+            .indexOf(d)
       )
       .replace(
         /[,\s٬،]/g,
@@ -2488,9 +3530,15 @@ function normalizePrice(value) {
       );
 
   const number =
-    Number(normalized);
+    Number(
+      normalized
+    );
 
-  if (!Number.isFinite(number)) {
+  if (
+    !Number.isFinite(
+      number
+    )
+  ) {
     return 0;
   }
 
@@ -2501,53 +3549,104 @@ function normalizePrice(value) {
 }
 
 
-function formatPrice(value) {
+function formatPrice(
+  value
+) {
 
   const number =
-    normalizePrice(value);
+    normalizePrice(
+      value
+    );
 
   return (
-    number.toLocaleString("fa-IR") +
+    number.toLocaleString(
+      "fa-IR"
+    ) +
     " تومان"
   );
 }
 
 
-function escapeHTML(value) {
+function escapeHTML(
+  value
+) {
 
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+  return String(
+    value ?? ""
+  )
+    .replaceAll(
+      "&",
+      "&amp;"
+    )
+    .replaceAll(
+      "<",
+      "&lt;"
+    )
+    .replaceAll(
+      ">",
+      "&gt;"
+    )
+    .replaceAll(
+      '"',
+      "&quot;"
+    )
+    .replaceAll(
+      "'",
+      "&#039;"
+    );
 }
 
 
-function escapeAttr(value) {
-  return escapeHTML(value);
+function escapeAttr(
+  value
+) {
+  return escapeHTML(
+    value
+  );
 }
 
 
-function escapeJS(value) {
+function escapeJS(
+  value
+) {
 
-  return String(value ?? "")
-    .replaceAll("\\", "\\\\")
-    .replaceAll("'", "\\'")
-    .replaceAll("\n", "\\n")
-    .replaceAll("\r", "\\r");
+  return String(
+    value ?? ""
+  )
+    .replaceAll(
+      "\\",
+      "\\\\"
+    )
+    .replaceAll(
+      "'",
+      "\\'"
+    )
+    .replaceAll(
+      "\n",
+      "\\n"
+    )
+    .replaceAll(
+      "\r",
+      "\\r"
+    );
 }
 
 
-function safeError(error) {
+function safeError(
+  error
+) {
 
   if (!error) {
     return "خطای ناشناخته";
   }
 
   if (error.message) {
-    return String(error.message);
+    return String(
+      error.message
+    );
   }
 
-  return String(error);
+  return String(
+    error
+  );
        }
