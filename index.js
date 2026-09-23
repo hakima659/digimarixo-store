@@ -221,7 +221,7 @@ async function seedProducts(env) {
     .prepare(`SELECT COUNT(*) AS count FROM products`)
     .first();
 
-  if (safeNumber(result?.count) > 0) {
+  if (Number(result?.count || 0) > 0) {
     return;
   }
 
@@ -290,9 +290,14 @@ async function getProducts(env) {
     ORDER BY id DESC
   `).all();
 
+  const products = (result.results || []).map(product => ({
+    ...product,
+    price: normalizePrice(product.price)
+  }));
+
   return {
     ok: true,
-    products: (result.results || []).map(normalizeProduct)
+    products
   };
 }
 
@@ -323,9 +328,11 @@ async function getProduct(env, id) {
     };
   }
 
+  product.price = normalizePrice(product.price);
+
   return {
     ok: true,
-    product: normalizeProduct(product)
+    product
   };
 }
 
@@ -389,12 +396,12 @@ async function createOrder(request, env) {
 
   for (const item of items) {
     const productId =
-      safeNumber(item.product_id ?? item.id);
+      Number(item.product_id ?? item.id);
 
     const quantity =
-      Math.max(1, safeNumber(item.quantity || 1));
+      Math.max(1, Number(item.quantity || 1));
 
-    if (!Number.isFinite(productId) || productId <= 0) {
+    if (!Number.isFinite(productId)) {
       return json(
         {
           ok: false,
@@ -413,7 +420,7 @@ async function createOrder(request, env) {
       .bind(productId)
       .first();
 
-    if (!product || safeNumber(product.active) !== 1) {
+    if (!product || Number(product.active) !== 1) {
       return json(
         {
           ok: false,
@@ -423,9 +430,7 @@ async function createOrder(request, env) {
       );
     }
 
-    const stock = safeNumber(product.stock);
-
-    if (stock < quantity) {
+    if (Number(product.stock) < quantity) {
       return json(
         {
           ok: false,
@@ -435,7 +440,7 @@ async function createOrder(request, env) {
       );
     }
 
-    const price = safeNumber(product.price);
+    const price = normalizePrice(product.price);
 
     total += price * quantity;
 
@@ -714,9 +719,8 @@ function productDetailPage(product) {
       </div>
     `;
 
-  const stock = safeNumber(product.stock);
-  const price = safeNumber(product.price);
-  const id = safeNumber(product.id);
+  const stock = Number(product.stock || 0);
+  const price = normalizePrice(product.price);
 
   return `
     <section class="product-detail">
@@ -760,7 +764,7 @@ function productDetailPage(product) {
               <button
                 class="btn orange"
                 onclick="addToCart(
-                  ${id},
+                  ${Number(product.id)},
                   '${escapeJS(product.name || "محصول")}',
                   ${price}
                 )"
@@ -797,7 +801,7 @@ function productDetailPage(product) {
 ========================================================= */
 
 function productCard(product) {
-  const id = safeNumber(product.id);
+  const id = Number(product.id || 0);
 
   const name =
     escapeHTML(product.name || "محصول");
@@ -809,13 +813,10 @@ function productCard(product) {
     );
 
   const price =
-    formatPrice(product.price);
-
-  const numericPrice =
-    safeNumber(product.price);
+    normalizePrice(product.price);
 
   const stock =
-    safeNumber(product.stock);
+    Number(product.stock || 0);
 
   const image = product.image
     ? `
@@ -856,7 +857,7 @@ function productCard(product) {
         <div class="product-bottom">
 
           <strong>
-            ${price}
+            ${formatPrice(price)}
           </strong>
 
           <span class="stock">
@@ -886,7 +887,7 @@ function productCard(product) {
                   onclick="addToCart(
                     ${id},
                     '${escapeJS(product.name || "محصول")}',
-                    ${numericPrice}
+                    ${price}
                   )"
                 >
                   افزودن به سبد
@@ -2111,50 +2112,25 @@ function layout(title, content) {
   }
 
 
-  function clientNumber(value) {
-    const cleaned = String(value ?? "")
-      .replace(/[۰-۹]/g, d =>
-        "۰۱۲۳۴۵۶۷۸۹".indexOf(d)
-      )
-      .replace(/[٠-٩]/g, d =>
-        "٠١٢٣٤٥٦٧٨٩".indexOf(d)
-      )
-      .replace(/[,\s٬،]/g, "");
-
-    const number = Number(cleaned);
-
-    return Number.isFinite(number)
-      ? number
-      : 0;
-  }
-
-
   function addToCart(id, name, price) {
 
     const cart = getCart();
 
-    const numericId =
-      clientNumber(id);
-
-    const numericPrice =
-      clientNumber(price);
-
     const existing = cart.find(
       item =>
-        clientNumber(item.id) === numericId
+        Number(item.id) === Number(id)
     );
 
     if (existing) {
 
-      existing.quantity =
-        clientNumber(existing.quantity) + 1;
+      existing.quantity += 1;
 
     } else {
 
       cart.push({
-        id: numericId,
+        id: Number(id),
         name: name,
-        price: numericPrice,
+        price: Number(price) || 0,
         quantity: 1
       });
 
@@ -2171,9 +2147,13 @@ function layout(title, content) {
 
 
   function formatNumber(value) {
-    return clientNumber(
-      value
-    ).toLocaleString("fa-IR");
+    const number = Number(value);
+
+    if (!Number.isFinite(number)) {
+      return "۰";
+    }
+
+    return number.toLocaleString("fa-IR");
   }
 
 
@@ -2214,17 +2194,25 @@ function layout(title, content) {
       cart.map(
         function(item, index) {
 
-          const itemPrice =
-            clientNumber(item.price);
+          const price =
+            Number(item.price);
 
-          const itemQuantity =
-            Math.max(
-              1,
-              clientNumber(item.quantity || 1)
-            );
+          const quantity =
+            Number(item.quantity);
+
+          const safePrice =
+            Number.isFinite(price)
+              ? price
+              : 0;
+
+          const safeQuantity =
+            Number.isFinite(quantity) &&
+            quantity > 0
+              ? quantity
+              : 1;
 
           const line =
-            itemPrice * itemQuantity;
+            safePrice * safeQuantity;
 
           total += line;
 
@@ -2256,7 +2244,7 @@ function layout(title, content) {
                 >
                   تعداد:
                   ${formatNumber(
-                    itemQuantity
+                    safeQuantity
                   )}
                 </div>
 
@@ -2344,27 +2332,19 @@ function layout(title, content) {
             body: JSON.stringify({
               customer_name:
                 customerName,
-
               customer_phone:
                 customerPhone || "",
-
               customer_email:
                 customerEmail || "",
-
               address:
                 address || "",
-
               items:
                 cart.map(item => ({
                   product_id:
-                    clientNumber(item.id),
-
+                    Number(item.id),
                   quantity:
-                    Math.max(
-                      1,
-                      clientNumber(
-                        item.quantity || 1
-                      )
+                    Number(
+                      item.quantity || 1
                     )
                 }))
             })
@@ -2467,69 +2447,56 @@ function json(data, status = 200) {
 
 
 /* =========================================================
-   NUMBER HELPERS
+   HELPERS
 ========================================================= */
 
-function normalizeDigits(value) {
-  return String(value ?? "")
+/*
+  FIX PRICE
+  جلوگیری کامل از نمایش NaN / ناعدد
+  پشتیبانی از اعداد فارسی و عربی
+*/
+
+function normalizePrice(value) {
+  const normalized = String(value ?? "")
+    .trim()
     .replace(/[۰-۹]/g, d =>
       "۰۱۲۳۴۵۶۷۸۹".indexOf(d)
     )
     .replace(/[٠-٩]/g, d =>
       "٠١٢٣٤٥٦٧٨٩".indexOf(d)
-    );
-}
+    )
+    .replace(/[,\s٬،]/g, "");
 
+  const number = Number(normalized);
 
-function safeNumber(value) {
-  const cleaned =
-    normalizeDigits(value)
-      .replace(/[,\s٬،]/g, "");
-
-  const number = Number(cleaned);
-
-  return Number.isFinite(number)
-    ? number
-    : 0;
-}
-
-
-function normalizeProduct(product) {
-  if (!product) {
-    return null;
+  if (!Number.isFinite(number)) {
+    return 0;
   }
 
-  return {
-    ...product,
-
-    id: safeNumber(product.id),
-
-    price: safeNumber(product.price),
-
-    stock: safeNumber(product.stock),
-
-    active: safeNumber(product.active)
-  };
+  return Math.max(0, Math.round(number));
 }
 
 
 function formatPrice(value) {
+  const number = normalizePrice(value);
+
   return (
-    safeNumber(value).toLocaleString("fa-IR") +
+    number.toLocaleString("fa-IR") +
     " تومان"
   );
 }
 
 
 function formatNumber(value) {
-  return safeNumber(value)
-    .toLocaleString("fa-IR");
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return "۰";
+  }
+
+  return number.toLocaleString("fa-IR");
 }
 
-
-/* =========================================================
-   OTHER HELPERS
-========================================================= */
 
 function escapeHTML(value) {
   return String(value ?? "")
@@ -2566,4 +2533,4 @@ function safeError(error) {
   }
 
   return String(error);
-}
+     }
