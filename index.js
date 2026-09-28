@@ -10,6 +10,10 @@ export default {
     try {
       await initDB(env);
 
+      /* =====================================================
+         HEALTH
+      ===================================================== */
+
       if (path === "/health") {
         return json({
           ok: true,
@@ -18,11 +22,18 @@ export default {
         });
       }
 
+      /* =====================================================
+         PUBLIC PRODUCTS
+      ===================================================== */
+
       if (path === "/api/products" && method === "GET") {
         return json(await getProducts(env));
       }
 
-      if (path.startsWith("/api/products/") && method === "GET") {
+      if (
+        path.startsWith("/api/products/") &&
+        method === "GET"
+      ) {
         return json(
           await getProduct(
             env,
@@ -31,15 +42,20 @@ export default {
         );
       }
 
-      if (path === "/api/suppliers" && method === "GET") {
+      /* =====================================================
+         PUBLIC SUPPLIERS
+      ===================================================== */
+
+      if (
+        path === "/api/suppliers" &&
+        method === "GET"
+      ) {
         return json(await getSuppliers(env));
       }
 
-      /*
-       * =====================================================
-       * ADMIN API
-       * =====================================================
-       */
+      /* =====================================================
+         ADMIN API
+      ===================================================== */
 
       if (
         path === "/api/admin/suppliers" &&
@@ -109,23 +125,86 @@ export default {
         return await updateOrderStatus(request, env);
       }
 
-      /*
-       * =====================================================
-       * ORDERS
-       * =====================================================
-       */
+      /* =====================================================
+         SUPPLIER API
+      ===================================================== */
+
+      if (
+        path === "/api/supplier/login" &&
+        method === "POST"
+      ) {
+        return await supplierLogin(request, env);
+      }
+
+      if (
+        path === "/api/supplier/orders" &&
+        method === "GET"
+      ) {
+        const supplier = await authenticateSupplier(
+          request,
+          env
+        );
+
+        if (!supplier) {
+          return json(
+            {
+              ok: false,
+              error:
+                "دسترسی تأمین‌کننده معتبر نیست."
+            },
+            401
+          );
+        }
+
+        return json(
+          await getSupplierOrders(
+            env,
+            supplier.id
+          )
+        );
+      }
+
+      if (
+        path === "/api/supplier/orders/status" &&
+        method === "PUT"
+      ) {
+        const supplier = await authenticateSupplier(
+          request,
+          env
+        );
+
+        if (!supplier) {
+          return json(
+            {
+              ok: false,
+              error:
+                "دسترسی تأمین‌کننده معتبر نیست."
+            },
+            401
+          );
+        }
+
+        return await updateSupplierOrder(
+          request,
+          env,
+          supplier.id
+        );
+      }
+
+      /* =====================================================
+         ORDERS
+      ===================================================== */
 
       if (
         path === "/api/orders" &&
         method === "POST"
       ) {
-        return await createOrder(request, env);
+        return await createOrder(
+          request,
+          env
+        );
       }
 
-      /*
-       * سفارش‌ها اطلاعات خصوصی دارند.
-       * فقط مدیر اجازه مشاهده دارد.
-       */
       if (
         path === "/api/orders" &&
         method === "GET"
@@ -134,41 +213,68 @@ export default {
           return json(
             {
               ok: false,
-              error: "دسترسی مدیریت مجاز نیست."
+              error:
+                "دسترسی مدیریت مجاز نیست."
             },
             401
           );
         }
 
-        return json(await getOrders(env));
+        return json(
+          await getOrders(env)
+        );
       }
 
-      /*
-       * =====================================================
-       * PAGES
-       * =====================================================
-       */
+      /* =====================================================
+         CUSTOMER ORDER LOOKUP
+      ===================================================== */
+
+      if (
+        path === "/api/order/lookup" &&
+        method === "POST"
+      ) {
+        return await lookupOrder(
+          request,
+          env
+        );
+      }
+
+      /* =====================================================
+         PAGES
+      ===================================================== */
 
       if (path === "/account") {
-        return html(accountPage());
+        return html(
+          accountPage()
+        );
       }
 
-      /*
-       * صفحه مدیریت با Basic Authentication
-       */
+      if (path === "/supplier") {
+        return html(
+          supplierPage()
+        );
+      }
+
       if (path === "/admin") {
         if (!isBasicAdmin(request, env)) {
           return basicAuthResponse();
         }
 
-        return html(await adminPage(env));
+        return html(
+          await adminPage(env)
+        );
       }
 
       if (path === "/products") {
-        const id = url.searchParams.get("id");
+        const id =
+          url.searchParams.get("id");
 
         if (id) {
-          const result = await getProduct(env, id);
+          const result =
+            await getProduct(
+              env,
+              id
+            );
 
           if (!result.ok) {
             return html(
@@ -176,11 +282,19 @@ export default {
                 "محصول پیدا نشد",
                 `
                 <section class="page-title">
-                  <span class="eyebrow">DigiMarixo</span>
-                  <h1>محصول پیدا نشد</h1>
+                  <span class="eyebrow">
+                    DigiMarixo
+                  </span>
+
+                  <h1>
+                    محصول پیدا نشد
+                  </h1>
+
                   <p>
-                    محصول موردنظر در فروشگاه وجود ندارد.
+                    محصول موردنظر در فروشگاه
+                    وجود ندارد.
                   </p>
+
                   <a
                     class="btn primary"
                     href="/products"
@@ -197,19 +311,27 @@ export default {
           return html(
             layout(
               result.product.name,
-              productDetailPage(result.product)
+              productDetailPage(
+                result.product
+              )
             )
           );
         }
 
-        return html(await productsPage(env));
+        return html(
+          await productsPage(env)
+        );
       }
 
       if (path === "/cart") {
-        return html(cartPage());
+        return html(
+          cartPage()
+        );
       }
 
-      return html(await homePage(env));
+      return html(
+        await homePage(env)
+      );
 
     } catch (error) {
       console.error(
@@ -224,7 +346,9 @@ export default {
           status: 500,
           headers: {
             "content-type":
-              "text/plain; charset=UTF-8"
+              "text/plain; charset=UTF-8",
+            "cache-control":
+              "no-store"
           }
         }
       );
@@ -261,9 +385,30 @@ async function initDB(env) {
       address TEXT DEFAULT '',
       direct_shipping INTEGER DEFAULT 0,
       active INTEGER DEFAULT 1,
+      access_code TEXT DEFAULT '',
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `).run();
+
+  const supplierInfo =
+    await env.DB
+      .prepare(
+        `PRAGMA table_info(suppliers)`
+      )
+      .all();
+
+  const supplierColumns =
+    new Set(
+      (supplierInfo.results || [])
+        .map(x => x.name)
+    );
+
+  if (!supplierColumns.has("access_code")) {
+    await env.DB.prepare(`
+      ALTER TABLE suppliers
+      ADD COLUMN access_code TEXT DEFAULT ''
+    `).run();
+  }
 
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS products (
@@ -331,7 +476,9 @@ async function initDB(env) {
     of productMigrations
   ) {
     if (!productColumns.has(name)) {
-      await env.DB.prepare(sql).run();
+      await env.DB
+        .prepare(sql)
+        .run();
     }
   }
 
@@ -384,7 +531,9 @@ async function initDB(env) {
     of orderMigrations
   ) {
     if (!orderColumns.has(name)) {
-      await env.DB.prepare(sql).run();
+      await env.DB
+        .prepare(sql)
+        .run();
     }
   }
 
@@ -434,7 +583,9 @@ async function initDB(env) {
     of itemMigrations
   ) {
     if (!itemColumns.has(name)) {
-      await env.DB.prepare(sql).run();
+      await env.DB
+        .prepare(sql)
+        .run();
     }
   }
 
@@ -452,6 +603,41 @@ async function initDB(env) {
     )
   `).run();
 
+  const supplierOrderInfo =
+    await env.DB
+      .prepare(
+        `PRAGMA table_info(supplier_orders)`
+      )
+      .all();
+
+  const supplierOrderColumns =
+    new Set(
+      (supplierOrderInfo.results || [])
+        .map(x => x.name)
+    );
+
+  if (
+    !supplierOrderColumns.has(
+      "tracking_code"
+    )
+  ) {
+    await env.DB.prepare(`
+      ALTER TABLE supplier_orders
+      ADD COLUMN tracking_code TEXT DEFAULT ''
+    `).run();
+  }
+
+  if (
+    !supplierOrderColumns.has(
+      "supplier_note"
+    )
+  ) {
+    await env.DB.prepare(`
+      ALTER TABLE supplier_orders
+      ADD COLUMN supplier_note TEXT DEFAULT ''
+    `).run();
+  }
+
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS reviews (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -466,7 +652,7 @@ async function initDB(env) {
 
 
 /* =========================================================
-   ADMIN AUTHENTICATION
+   ADMIN AUTH
 ========================================================= */
 
 function getAdminPassword(env) {
@@ -485,13 +671,10 @@ function getAdminPassword(env) {
 }
 
 
-/*
- * API authentication
- *
- * Header:
- * X-Admin-Password
- */
-function isAdmin(request, env) {
+function isAdmin(
+  request,
+  env
+) {
   const expected =
     getAdminPassword(env);
 
@@ -508,12 +691,10 @@ function isAdmin(request, env) {
 }
 
 
-/*
- * Browser authentication for /admin
- *
- * Uses HTTP Basic Authentication.
- */
-function isBasicAdmin(request, env) {
+function isBasicAdmin(
+  request,
+  env
+) {
   const expected =
     getAdminPassword(env);
 
@@ -527,7 +708,9 @@ function isBasicAdmin(request, env) {
     ) || "";
 
   if (
-    !authorization.startsWith("Basic ")
+    !authorization.startsWith(
+      "Basic "
+    )
   ) {
     return false;
   }
@@ -547,10 +730,15 @@ function isBasicAdmin(request, env) {
     }
 
     const username =
-      decoded.slice(0, separator);
+      decoded.slice(
+        0,
+        separator
+      );
 
     const password =
-      decoded.slice(separator + 1);
+      decoded.slice(
+        separator + 1
+      );
 
     return (
       username === "مدیر" &&
@@ -649,7 +837,9 @@ async function getProduct(
   }
 
   product.price =
-    normalizePrice(product.price);
+    normalizePrice(
+      product.price
+    );
 
   product.supplier_price =
     normalizePrice(
@@ -696,6 +886,26 @@ async function getSuppliers(env) {
 }
 
 
+function generateSupplierCode() {
+  const bytes =
+    new Uint8Array(12);
+
+  crypto.getRandomValues(
+    bytes
+  );
+
+  let result = "";
+
+  for (const byte of bytes) {
+    result +=
+      byte.toString(16)
+        .padStart(2, "0");
+  }
+
+  return result;
+}
+
+
 async function createSupplier(
   request,
   env
@@ -703,7 +913,8 @@ async function createSupplier(
   let data;
 
   try {
-    data = await request.json();
+    data =
+      await request.json();
   } catch {
     return json(
       {
@@ -716,28 +927,36 @@ async function createSupplier(
   }
 
   const name =
-    String(data.name || "")
-      .trim();
+    String(
+      data.name || ""
+    ).trim();
 
   const phone =
-    String(data.phone || "")
-      .trim();
+    String(
+      data.phone || ""
+    ).trim();
 
   const email =
-    String(data.email || "")
-      .trim();
+    String(
+      data.email || ""
+    ).trim();
 
   const address =
-    String(data.address || "")
-      .trim();
+    String(
+      data.address || ""
+    ).trim();
 
   const directShipping =
-    Number(data.direct_shipping) === 1
+    Number(
+      data.direct_shipping
+    ) === 1
       ? 1
       : 0;
 
   const active =
-    Number(data.active) === 0
+    Number(
+      data.active
+    ) === 0
       ? 0
       : 1;
 
@@ -752,6 +971,20 @@ async function createSupplier(
     );
   }
 
+  if (!directShipping) {
+    return json(
+      {
+        ok: false,
+        error:
+          "برای این سیستم، فروشنده باید ارسال مستقیم را فعال کند."
+      },
+      400
+    );
+  }
+
+  const accessCode =
+    generateSupplierCode();
+
   const result =
     await env.DB.prepare(`
       INSERT INTO suppliers
@@ -761,9 +994,10 @@ async function createSupplier(
         email,
         address,
         direct_shipping,
-        active
+        active,
+        access_code
       )
-      VALUES (?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `)
     .bind(
       name,
@@ -771,14 +1005,445 @@ async function createSupplier(
       email,
       address,
       directShipping,
-      active
+      active,
+      accessCode
     )
     .run();
 
   return json({
     ok: true,
     supplier_id:
-      result.meta.last_row_id
+      result.meta.last_row_id,
+    access_code:
+      accessCode
+  });
+}
+
+
+/* =========================================================
+   SUPPLIER AUTHENTICATION
+========================================================= */
+
+async function supplierLogin(
+  request,
+  env
+) {
+  let data;
+
+  try {
+    data =
+      await request.json();
+  } catch {
+    return json(
+      {
+        ok: false,
+        error:
+          "اطلاعات ورود نامعتبر است."
+      },
+      400
+    );
+  }
+
+  const supplierId =
+    Number(
+      data.supplier_id || 0
+    );
+
+  const accessCode =
+    String(
+      data.access_code || ""
+    ).trim();
+
+  if (
+    !supplierId ||
+    !accessCode
+  ) {
+    return json(
+      {
+        ok: false,
+        error:
+          "شناسه تأمین‌کننده و کد دسترسی الزامی است."
+      },
+      400
+    );
+  }
+
+  const supplier =
+    await env.DB.prepare(`
+      SELECT
+        id,
+        name,
+        phone,
+        email,
+        address,
+        direct_shipping,
+        active,
+        access_code
+      FROM suppliers
+      WHERE id = ?
+      LIMIT 1
+    `)
+    .bind(supplierId)
+    .first();
+
+  if (!supplier) {
+    return json(
+      {
+        ok: false,
+        error:
+          "تأمین‌کننده پیدا نشد."
+      },
+      401
+    );
+  }
+
+  if (
+    Number(supplier.active) !== 1
+  ) {
+    return json(
+      {
+        ok: false,
+        error:
+          "حساب تأمین‌کننده فعال نیست."
+      },
+      403
+    );
+  }
+
+  if (
+    !supplier.access_code ||
+    supplier.access_code !==
+      accessCode
+  ) {
+    return json(
+      {
+        ok: false,
+        error:
+          "کد دسترسی اشتباه است."
+      },
+      401
+    );
+  }
+
+  return json({
+    ok: true,
+    supplier: {
+      id:
+        Number(supplier.id),
+      name:
+        supplier.name,
+      phone:
+        supplier.phone,
+      email:
+        supplier.email
+    }
+  });
+}
+
+
+async function authenticateSupplier(
+  request,
+  env
+) {
+  const supplierId =
+    Number(
+      request.headers.get(
+        "X-Supplier-ID"
+      ) || 0
+    );
+
+  const accessCode =
+    String(
+      request.headers.get(
+        "X-Supplier-Code"
+      ) || ""
+    ).trim();
+
+  if (
+    !supplierId ||
+    !accessCode
+  ) {
+    return null;
+  }
+
+  const supplier =
+    await env.DB.prepare(`
+      SELECT
+        id,
+        name,
+        phone,
+        email,
+        address,
+        direct_shipping,
+        active,
+        access_code
+      FROM suppliers
+      WHERE id = ?
+      LIMIT 1
+    `)
+    .bind(supplierId)
+    .first();
+
+  if (!supplier) {
+    return null;
+  }
+
+  if (
+    Number(supplier.active) !== 1
+  ) {
+    return null;
+  }
+
+  if (
+    !supplier.access_code ||
+    supplier.access_code !==
+      accessCode
+  ) {
+    return null;
+  }
+
+  return supplier;
+}
+
+
+/* =========================================================
+   SUPPLIER ORDERS
+========================================================= */
+
+async function getSupplierOrders(
+  env,
+  supplierId
+) {
+  const result =
+    await env.DB.prepare(`
+      SELECT
+        so.id,
+        so.order_id,
+        so.status,
+        so.shipping_status,
+        so.supplier_note,
+        so.tracking_code,
+        so.created_at,
+        so.updated_at,
+
+        o.customer_name,
+        o.customer_phone,
+        o.customer_email,
+        o.address,
+        o.total,
+        o.status AS order_status,
+
+        (
+          SELECT
+            GROUP_CONCAT(
+              p.name ||
+              ' × ' ||
+              oi.quantity,
+              '، '
+            )
+          FROM order_items oi
+          JOIN products p
+            ON p.id = oi.product_id
+          WHERE
+            oi.order_id = o.id
+            AND oi.supplier_id = ?
+        ) AS items
+
+      FROM supplier_orders so
+
+      JOIN orders o
+        ON o.id = so.order_id
+
+      WHERE
+        so.supplier_id = ?
+
+      ORDER BY
+        so.id DESC
+    `)
+    .bind(
+      supplierId,
+      supplierId
+    )
+    .all();
+
+  return {
+    ok: true,
+    orders:
+      result.results || []
+  };
+}
+
+
+async function updateSupplierOrder(
+  request,
+  env,
+  supplierId
+) {
+  let data;
+
+  try {
+    data =
+      await request.json();
+  } catch {
+    return json(
+      {
+        ok: false,
+        error:
+          "اطلاعات نامعتبر است."
+      },
+      400
+    );
+  }
+
+  const supplierOrderId =
+    Number(
+      data.supplier_order_id ||
+      data.id ||
+      0
+    );
+
+  const status =
+    String(
+      data.status ||
+        "تأیید شد"
+    ).trim();
+
+  const shippingStatus =
+    String(
+      data.shipping_status ||
+        "در انتظار ارسال"
+    ).trim();
+
+  const note =
+    String(
+      data.supplier_note ||
+        ""
+    ).trim();
+
+  const trackingCode =
+    String(
+      data.tracking_code ||
+        ""
+    ).trim();
+
+  if (!supplierOrderId) {
+    return json(
+      {
+        ok: false,
+        error:
+          "شناسه سفارش نامعتبر است."
+      },
+      400
+    );
+  }
+
+  const supplierOrder =
+    await env.DB.prepare(`
+      SELECT
+        id,
+        order_id,
+        supplier_id
+      FROM supplier_orders
+      WHERE
+        id = ?
+        AND supplier_id = ?
+      LIMIT 1
+    `)
+    .bind(
+      supplierOrderId,
+      supplierId
+    )
+    .first();
+
+  if (!supplierOrder) {
+    return json(
+      {
+        ok: false,
+        error:
+          "این سفارش برای شما نیست."
+      },
+      403
+    );
+  }
+
+  await env.DB.prepare(`
+    UPDATE supplier_orders
+    SET
+      status = ?,
+      shipping_status = ?,
+      supplier_note = ?,
+      tracking_code = ?,
+      updated_at = CURRENT_TIMESTAMP
+    WHERE
+      id = ?
+      AND supplier_id = ?
+  `)
+  .bind(
+    status,
+    shippingStatus,
+    note,
+    trackingCode,
+    supplierOrderId,
+    supplierId
+  )
+  .run();
+
+  /*
+   * وضعیت اصلی سفارش نیز بر اساس
+   * وضعیت تأمین‌کننده به‌روزرسانی می‌شود.
+   */
+
+  let mainStatus =
+    "در حال بررسی";
+
+  if (
+    status === "تأیید شد"
+  ) {
+    mainStatus =
+      "تأیید تأمین‌کننده";
+  }
+
+  if (
+    status === "لغو شد"
+  ) {
+    mainStatus =
+      "لغو شده توسط تأمین‌کننده";
+  }
+
+  if (
+    shippingStatus === "ارسال شد"
+  ) {
+    mainStatus =
+      "ارسال شد";
+  }
+
+  if (
+    shippingStatus === "تحویل شد"
+  ) {
+    mainStatus =
+      "تحویل شد";
+  }
+
+  await env.DB.prepare(`
+    UPDATE orders
+    SET
+      status = ?,
+      supplier_status = ?,
+      shipping_status = ?
+    WHERE id = ?
+  `)
+  .bind(
+    mainStatus,
+    status,
+    shippingStatus,
+    supplierOrder.order_id
+  )
+  .run();
+
+  return json({
+    ok: true,
+    order_id:
+      supplierOrder.order_id
   });
 }
 
@@ -794,7 +1459,8 @@ async function createProduct(
   let data;
 
   try {
-    data = await request.json();
+    data =
+      await request.json();
   } catch {
     return json(
       {
@@ -807,34 +1473,44 @@ async function createProduct(
   }
 
   const name =
-    String(data.name || "")
-      .trim();
+    String(
+      data.name || ""
+    ).trim();
 
   const description =
-    String(data.description || "")
-      .trim();
+    String(
+      data.description || ""
+    ).trim();
 
   const category =
-    String(data.category || "")
-      .trim();
+    String(
+      data.category || ""
+    ).trim();
 
   const image =
-    String(data.image || "")
-      .trim();
+    String(
+      data.image || ""
+    ).trim();
 
   const price =
-    normalizePrice(data.price);
+    normalizePrice(
+      data.price
+    );
 
   const stock =
     Math.max(
       0,
       Math.floor(
-        Number(data.stock || 0)
+        Number(
+          data.stock || 0
+        )
       )
     );
 
   const supplierId =
-    Number(data.supplier_id || 0);
+    Number(
+      data.supplier_id || 0
+    );
 
   const supplierPrice =
     normalizePrice(
@@ -847,7 +1523,9 @@ async function createProduct(
     );
 
   const active =
-    Number(data.active) === 0
+    Number(
+      data.active
+    ) === 0
       ? 0
       : 1;
 
@@ -986,7 +1664,8 @@ async function updateProduct(
   let data;
 
   try {
-    data = await request.json();
+    data =
+      await request.json();
   } catch {
     return json(
       {
@@ -1034,34 +1713,44 @@ async function updateProduct(
   }
 
   const name =
-    String(data.name || "")
-      .trim();
+    String(
+      data.name || ""
+    ).trim();
 
   const description =
-    String(data.description || "")
-      .trim();
+    String(
+      data.description || ""
+    ).trim();
 
   const category =
-    String(data.category || "")
-      .trim();
+    String(
+      data.category || ""
+    ).trim();
 
   const image =
-    String(data.image || "")
-      .trim();
+    String(
+      data.image || ""
+    ).trim();
 
   const price =
-    normalizePrice(data.price);
+    normalizePrice(
+      data.price
+    );
 
   const stock =
     Math.max(
       0,
       Math.floor(
-        Number(data.stock || 0)
+        Number(
+          data.stock || 0
+        )
       )
     );
 
   const supplierId =
-    Number(data.supplier_id || 0);
+    Number(
+      data.supplier_id || 0
+    );
 
   const supplierPrice =
     normalizePrice(
@@ -1074,7 +1763,9 @@ async function updateProduct(
     );
 
   const active =
-    Number(data.active) === 0
+    Number(
+      data.active
+    ) === 0
       ? 0
       : 1;
 
@@ -1210,7 +1901,8 @@ async function createOrder(
   let data;
 
   try {
-    data = await request.json();
+    data =
+      await request.json();
   } catch {
     return json(
       {
@@ -1316,8 +2008,12 @@ async function createOrder(
       );
 
     if (
-      !Number.isFinite(productId) ||
-      !Number.isFinite(quantity)
+      !Number.isFinite(
+        productId
+      ) ||
+      !Number.isFinite(
+        quantity
+      )
     ) {
       return json(
         {
@@ -1366,15 +2062,21 @@ async function createOrder(
       );
     }
 
+    /*
+     * موجودی همچنان توسط تأمین‌کننده
+     * قابل تنظیم است، اما بعد از سفارش
+     * خودکار کم نمی‌شود.
+     *
+     * چون DigiMarixo انباردار کالا نیست.
+     */
     if (
-      Number(product.stock) <
-      quantity
+      Number(product.stock) <= 0
     ) {
       return json(
         {
           ok: false,
           error:
-            "موجودی محصول کافی نیست."
+            "این محصول در حال حاضر موجود نیست."
         },
         400
       );
@@ -1415,7 +2117,7 @@ async function createOrder(
         {
           ok: false,
           error:
-            "فروشنده این محصول هنوز ارسال مستقیم به مشتری را تأیید نکرده است."
+            "فروشنده این محصول ارسال مستقیم به مشتری را تأیید نکرده است."
         },
         400
       );
@@ -1453,14 +2155,18 @@ async function createOrder(
     const orderItem = {
       productId,
       supplierId:
-        Number(product.supplier_id),
+        Number(
+          product.supplier_id
+        ),
       quantity,
       price,
       supplierPrice,
       commission
     };
 
-    orderItems.push(orderItem);
+    orderItems.push(
+      orderItem
+    );
 
     if (
       !supplierGroups.has(
@@ -1474,7 +2180,9 @@ async function createOrder(
     }
 
     supplierGroups
-      .get(orderItem.supplierId)
+      .get(
+        orderItem.supplierId
+      )
       .push(orderItem);
   }
 
@@ -1533,18 +2241,10 @@ async function createOrder(
     )
     .run();
 
-    await env.DB.prepare(`
-      UPDATE products
-      SET stock = stock - ?
-      WHERE id = ?
-      AND stock >= ?
-    `)
-    .bind(
-      item.quantity,
-      item.productId,
-      item.quantity
-    )
-    .run();
+    /*
+     * عمداً موجودی را کم نمی‌کنیم.
+     * چون محصول متعلق به تأمین‌کننده است.
+     */
   }
 
   for (
@@ -1572,7 +2272,8 @@ async function createOrder(
 
   return json({
     ok: true,
-    order_id: orderId,
+    order_id:
+      orderId,
     total,
     suppliers:
       supplierGroups.size
@@ -1613,7 +2314,8 @@ async function updateOrderStatus(
   let data;
 
   try {
-    data = await request.json();
+    data =
+      await request.json();
   } catch {
     return json(
       {
@@ -1695,6 +2397,117 @@ async function updateOrderStatus(
 
 
 /* =========================================================
+   CUSTOMER ORDER LOOKUP
+========================================================= */
+
+async function lookupOrder(
+  request,
+  env
+) {
+  let data;
+
+  try {
+    data =
+      await request.json();
+  } catch {
+    return json(
+      {
+        ok: false,
+        error:
+          "اطلاعات نامعتبر است."
+      },
+      400
+    );
+  }
+
+  const orderId =
+    Number(
+      data.order_id || 0
+    );
+
+  const phone =
+    String(
+      data.phone || ""
+    ).trim();
+
+  if (
+    !orderId ||
+    !phone
+  ) {
+    return json(
+      {
+        ok: false,
+        error:
+          "شماره سفارش و شماره تماس الزامی است."
+      },
+      400
+    );
+  }
+
+  const order =
+    await env.DB.prepare(`
+      SELECT
+        id,
+        customer_name,
+        customer_phone,
+        total,
+        status,
+        supplier_status,
+        shipping_status,
+        created_at
+      FROM orders
+      WHERE
+        id = ?
+        AND customer_phone = ?
+      LIMIT 1
+    `)
+    .bind(
+      orderId,
+      phone
+    )
+    .first();
+
+  if (!order) {
+    return json(
+      {
+        ok: false,
+        error:
+          "سفارش پیدا نشد."
+      },
+      404
+    );
+  }
+
+  const suppliers =
+    await env.DB.prepare(`
+      SELECT
+        so.id,
+        so.status,
+        so.shipping_status,
+        so.tracking_code,
+        so.supplier_note,
+        s.name AS supplier_name
+      FROM supplier_orders so
+      LEFT JOIN suppliers s
+        ON s.id = so.supplier_id
+      WHERE so.order_id = ?
+      ORDER BY so.id ASC
+    `)
+    .bind(orderId)
+    .all();
+
+  return json({
+    ok: true,
+    order: {
+      ...order,
+      suppliers:
+        suppliers.results || []
+    }
+  });
+}
+
+
+/* =========================================================
    HOME
 ========================================================= */
 
@@ -1721,6 +2534,7 @@ async function homePage(env) {
     "خانه",
     `
     <section class="hero">
+
       <div class="hero-content">
 
         <span class="badge">
@@ -1756,6 +2570,7 @@ async function homePage(env) {
           </a>
 
         </div>
+
       </div>
 
       <div class="hero-card">
@@ -1774,6 +2589,7 @@ async function homePage(env) {
         </p>
 
       </div>
+
     </section>
 
     <section class="section">
@@ -1781,6 +2597,7 @@ async function homePage(env) {
       <div class="section-head">
 
         <div>
+
           <span class="eyebrow">
             محصولات
           </span>
@@ -1788,6 +2605,7 @@ async function homePage(env) {
           <h2>
             محصولات منتخب
           </h2>
+
         </div>
 
         <a
@@ -1966,13 +2784,19 @@ async function productsPage(env) {
    PRODUCT DETAIL
 ========================================================= */
 
-function productDetailPage(product) {
+function productDetailPage(
+  product
+) {
   const image =
     product.image
       ? `
         <img
-          src="${escapeAttr(product.image)}"
-          alt="${escapeAttr(product.name)}"
+          src="${escapeAttr(
+            product.image
+          )}"
+          alt="${escapeAttr(
+            product.name
+          )}"
         >
       `
       : `
@@ -1982,14 +2806,20 @@ function productDetailPage(product) {
       `;
 
   const stock =
-    Number(product.stock || 0);
+    Number(
+      product.stock || 0
+    );
 
   const price =
-    normalizePrice(product.price);
+    normalizePrice(
+      product.price
+    );
 
   const canBuy =
     stock > 0 &&
-    Number(product.supplier_id) > 0 &&
+    Number(
+      product.supplier_id
+    ) > 0 &&
     Number(
       product.supplier_direct_shipping
     ) === 1 &&
@@ -2030,14 +2860,15 @@ function productDetailPage(product) {
         </div>
 
         <div class="detail-stock">
+
           ${
             stock > 0
               ? `
-                موجودی:
-                ${formatNumber(stock)}
+                موجود و قابل سفارش
               `
               : "ناموجود"
           }
+
         </div>
 
         ${
@@ -2097,9 +2928,13 @@ function productDetailPage(product) {
    PRODUCT CARD
 ========================================================= */
 
-function productCard(product) {
+function productCard(
+  product
+) {
   const id =
-    Number(product.id || 0);
+    Number(
+      product.id || 0
+    );
 
   const name =
     escapeHTML(
@@ -2114,14 +2949,20 @@ function productCard(product) {
     );
 
   const price =
-    normalizePrice(product.price);
+    normalizePrice(
+      product.price
+    );
 
   const stock =
-    Number(product.stock || 0);
+    Number(
+      product.stock || 0
+    );
 
   const canBuy =
     stock > 0 &&
-    Number(product.supplier_id) > 0 &&
+    Number(
+      product.supplier_id
+    ) > 0 &&
     Number(
       product.supplier_direct_shipping
     ) === 1 &&
@@ -2241,52 +3082,61 @@ function accountPage() {
         </span>
 
         <h1>
-          حساب کاربری
+          پیگیری سفارش
         </h1>
 
         <p>
-          مدیریت حساب و سفارش‌های
-          دیجی‌ماریکسو
+          برای مشاهده وضعیت سفارش،
+          شماره سفارش و شماره تماس
+          خود را وارد کنید.
         </p>
 
         <form
-          onsubmit="return false;"
+          onsubmit="
+            return lookupOrderForm(event)
+          "
         >
 
           <label>
-            نام کاربری یا ایمیل
+            شماره سفارش
           </label>
 
           <input
-            type="text"
-            placeholder="نام کاربری یا ایمیل"
+            id="lookup-order-id"
+            type="number"
+            min="1"
+            required
+            placeholder="مثلاً ۱۲۳"
           >
 
           <label>
-            رمز عبور
+            شماره تماس
           </label>
 
           <input
-            type="password"
-            placeholder="رمز عبور"
+            id="lookup-phone"
+            required
+            placeholder="شماره تماس ثبت سفارش"
           >
 
           <button
             class="btn primary"
-            type="button"
-            onclick="alert(
-              'بخش ورود در حال آماده‌سازی است.'
-            )"
+            type="submit"
           >
-            ورود
+            پیگیری سفارش
           </button>
 
         </form>
 
+        <div
+          id="lookup-result"
+          style="margin-top:20px"
+        ></div>
+
         <div class="account-links">
 
-          <a href="#register">
-            ثبت‌نام
+          <a href="/products">
+            ادامه خرید
           </a>
 
           <a href="/">
@@ -2297,61 +3147,1001 @@ function accountPage() {
 
       </div>
 
-      <div
-        class="account-card register"
-        id="register"
-      >
+      <div class="account-card">
+
+        <span class="eyebrow">
+          DigiMarixo
+        </span>
 
         <h2>
-          ایجاد حساب
+          حساب کاربری
         </h2>
 
-        <form
-          onsubmit="return false;"
+        <p>
+          سیستم ورود و ثبت‌نام کامل
+          مشتریان در مرحله بعدی
+          اضافه می‌شود.
+        </p>
+
+        <div
+          style="
+            margin-top:20px;
+            padding:18px;
+            background:#f1f5f9;
+            border-radius:15px;
+            color:#475569;
+            font-size:14px
+          "
         >
-
-          <label>
-            نام کاربری
-          </label>
-
-          <input
-            type="text"
-            placeholder="نام کاربری"
-          >
-
-          <label>
-            ایمیل
-          </label>
-
-          <input
-            type="email"
-            placeholder="ایمیل"
-          >
-
-          <label>
-            رمز عبور
-          </label>
-
-          <input
-            type="password"
-            placeholder="رمز عبور"
-          >
-
-          <button
-            class="btn secondary"
-            type="button"
-            onclick="alert(
-              'ثبت‌نام در حال آماده‌سازی است.'
-            )"
-          >
-            ایجاد حساب
-          </button>
-
-        </form>
+          در حال حاضر بدون نیاز به
+          ایجاد حساب، می‌توانید سفارش
+          ثبت کنید و با شماره سفارش
+          آن را پیگیری کنید.
+        </div>
 
       </div>
 
     </section>
+
+    <script>
+
+      async function lookupOrderForm(
+        event
+      ) {
+        event.preventDefault();
+
+        const orderId =
+          Number(
+            document
+              .getElementById(
+                "lookup-order-id"
+              )
+              .value
+          );
+
+        const phone =
+          document
+            .getElementById(
+              "lookup-phone"
+            )
+            .value
+            .trim();
+
+        const box =
+          document
+            .getElementById(
+              "lookup-result"
+            );
+
+        box.innerHTML =
+          "در حال بررسی...";
+
+        try {
+
+          const response =
+            await fetch(
+              "/api/order/lookup",
+              {
+                method:"POST",
+
+                headers:{
+                  "content-type":
+                    "application/json"
+                },
+
+                body:
+                  JSON.stringify({
+                    order_id:
+                      orderId,
+                    phone:
+                      phone
+                  })
+              }
+            );
+
+          const result =
+            await response.json();
+
+          if (!result.ok) {
+
+            box.innerHTML =
+              '<div class="empty">' +
+              escapeClientHTML(
+                result.error ||
+                "سفارش پیدا نشد."
+              ) +
+              '</div>';
+
+            return false;
+          }
+
+          const order =
+            result.order;
+
+          const supplierRows =
+            (
+              order.suppliers ||
+              []
+            )
+            .map(
+              function(s) {
+
+                return `
+                  <div
+                    style="
+                      padding:12px;
+                      margin-top:10px;
+                      background:#f8fafc;
+                      border-radius:12px
+                    "
+                  >
+
+                    <strong>
+                      ${escapeClientHTML(
+                        s.supplier_name ||
+                        "تأمین‌کننده"
+                      )}
+                    </strong>
+
+                    <div>
+                      وضعیت:
+                      ${escapeClientHTML(
+                        s.status
+                      )}
+                    </div>
+
+                    <div>
+                      ارسال:
+                      ${escapeClientHTML(
+                        s.shipping_status
+                      )}
+                    </div>
+
+                    ${
+                      s.tracking_code
+                        ? `
+                          <div>
+                            کد رهگیری:
+                            <strong>
+                              ${escapeClientHTML(
+                                s.tracking_code
+                              )}
+                            </strong>
+                          </div>
+                        `
+                        : ""
+                    }
+
+                  </div>
+                `;
+              }
+            )
+            .join("");
+
+          box.innerHTML = `
+            <div
+              class="admin-card"
+              style="margin-top:15px"
+            >
+
+              <strong>
+                سفارش #${Number(order.id)}
+              </strong>
+
+              <div>
+                وضعیت:
+                ${escapeClientHTML(
+                  order.status
+                )}
+              </div>
+
+              <div>
+                مبلغ:
+                ${formatClientPrice(
+                  order.total
+                )}
+              </div>
+
+              ${supplierRows}
+
+            </div>
+          `;
+
+        } catch(error) {
+
+          console.error(error);
+
+          box.innerHTML =
+            '<div class="empty">' +
+            'خطا در پیگیری سفارش.' +
+            '</div>';
+        }
+
+        return false;
+      }
+
+    </script>
+    `
+  );
+}
+
+
+/* =========================================================
+   SUPPLIER PAGE
+========================================================= */
+
+function supplierPage() {
+  return layout(
+    "پنل تأمین‌کننده",
+    `
+    <section class="page-title">
+
+      <span class="eyebrow">
+        DigiMarixo Supplier
+      </span>
+
+      <h1>
+        پنل تأمین‌کننده
+      </h1>
+
+      <p>
+        مشاهده و مدیریت سفارش‌های مربوط
+        به محصولات شما.
+      </p>
+
+    </section>
+
+    <section
+      class="account-wrap"
+      style="
+        grid-template-columns:1fr;
+        max-width:900px
+      "
+    >
+
+      <div
+        class="account-card"
+        id="supplier-login-box"
+      >
+
+        <span class="eyebrow">
+          ورود تأمین‌کننده
+        </span>
+
+        <h2>
+          ورود به پنل
+        </h2>
+
+        <form
+          onsubmit="
+            return supplierLoginForm(event)
+          "
+        >
+
+          <label>
+            شناسه تأمین‌کننده
+          </label>
+
+          <input
+            id="supplier-id"
+            type="number"
+            min="1"
+            required
+            placeholder="شناسه‌ای که مدیر فروشگاه داده است"
+          >
+
+          <label>
+            کد دسترسی
+          </label>
+
+          <input
+            id="supplier-code"
+            type="password"
+            required
+            placeholder="کد دسترسی تأمین‌کننده"
+          >
+
+          <button
+            class="btn orange"
+            type="submit"
+          >
+            ورود به پنل
+          </button>
+
+        </form>
+
+        <p
+          style="
+            color:#64748b;
+            font-size:13px;
+            margin-top:18px
+          "
+        >
+          شناسه و کد دسترسی توسط مدیر
+          دیجی‌ماریکسو هنگام ثبت فروشنده
+          ایجاد می‌شود.
+        </p>
+
+      </div>
+
+      <div
+        class="account-card"
+        id="supplier-panel"
+        style="display:none"
+      >
+
+        <div
+          style="
+            display:flex;
+            justify-content:space-between;
+            gap:15px;
+            align-items:center;
+            flex-wrap:wrap
+          "
+        >
+
+          <div>
+
+            <span class="eyebrow">
+              سفارش‌های شما
+            </span>
+
+            <h2 id="supplier-name-title">
+              تأمین‌کننده
+            </h2>
+
+          </div>
+
+          <button
+            class="btn secondary"
+            onclick="supplierLogout()"
+          >
+            خروج
+          </button>
+
+        </div>
+
+        <div
+          id="supplier-orders"
+          style="margin-top:25px"
+        >
+          در حال دریافت سفارش‌ها...
+        </div>
+
+      </div>
+
+    </section>
+
+    <script>
+
+      function getSupplierSession() {
+
+        try {
+
+          return JSON.parse(
+            localStorage.getItem(
+              "digimarixo_supplier"
+            ) || "null"
+          );
+
+        } catch {
+
+          return null;
+
+        }
+
+      }
+
+
+      function saveSupplierSession(
+        data
+      ) {
+
+        localStorage.setItem(
+          "digimarixo_supplier",
+          JSON.stringify(data)
+        );
+
+      }
+
+
+      function supplierLogout() {
+
+        localStorage.removeItem(
+          "digimarixo_supplier"
+        );
+
+        location.reload();
+
+      }
+
+
+      async function supplierLoginForm(
+        event
+      ) {
+
+        event.preventDefault();
+
+        const supplierId =
+          Number(
+            document
+              .getElementById(
+                "supplier-id"
+              )
+              .value
+          );
+
+        const accessCode =
+          document
+            .getElementById(
+              "supplier-code"
+            )
+            .value
+            .trim();
+
+        try {
+
+          const response =
+            await fetch(
+              "/api/supplier/login",
+              {
+                method:"POST",
+
+                headers:{
+                  "content-type":
+                    "application/json"
+                },
+
+                body:
+                  JSON.stringify({
+                    supplier_id:
+                      supplierId,
+
+                    access_code:
+                      accessCode
+                  })
+              }
+            );
+
+          const result =
+            await response.json();
+
+          if (!result.ok) {
+
+            alert(
+              result.error ||
+              "ورود انجام نشد."
+            );
+
+            return false;
+          }
+
+          saveSupplierSession({
+            id:
+              result.supplier.id,
+
+            name:
+              result.supplier.name,
+
+            access_code:
+              accessCode
+          });
+
+          location.reload();
+
+        } catch(error) {
+
+          console.error(error);
+
+          alert(
+            "خطا در ارتباط با سرور."
+          );
+
+        }
+
+        return false;
+      }
+
+
+      async function loadSupplierPanel() {
+
+        const session =
+          getSupplierSession();
+
+        if (!session) {
+          return;
+        }
+
+        const loginBox =
+          document
+            .getElementById(
+              "supplier-login-box"
+            );
+
+        const panel =
+          document
+            .getElementById(
+              "supplier-panel"
+            );
+
+        const title =
+          document
+            .getElementById(
+              "supplier-name-title"
+            );
+
+        if (!loginBox || !panel) {
+          return;
+        }
+
+        loginBox.style.display =
+          "none";
+
+        panel.style.display =
+          "block";
+
+        title.textContent =
+          session.name ||
+          "تأمین‌کننده";
+
+        const box =
+          document
+            .getElementById(
+              "supplier-orders"
+            );
+
+        try {
+
+          const response =
+            await fetch(
+              "/api/supplier/orders",
+              {
+                headers:{
+                  "X-Supplier-ID":
+                    String(
+                      session.id
+                    ),
+
+                  "X-Supplier-Code":
+                    session.access_code
+                }
+              }
+            );
+
+          const result =
+            await response.json();
+
+          if (!result.ok) {
+
+            box.innerHTML =
+              '<div class="empty">' +
+              escapeClientHTML(
+                result.error ||
+                "دسترسی رد شد."
+              ) +
+              '</div>';
+
+            return;
+          }
+
+          const orders =
+            result.orders || [];
+
+          if (!orders.length) {
+
+            box.innerHTML =
+              '<div class="empty">' +
+              'هنوز سفارشی برای شما ثبت نشده است.' +
+              '</div>';
+
+            return;
+          }
+
+          box.innerHTML =
+            orders
+              .map(
+                function(order) {
+
+                  return supplierOrderCard(
+                    order
+                  );
+
+                }
+              )
+              .join("");
+
+        } catch(error) {
+
+          console.error(error);
+
+          box.innerHTML =
+            '<div class="empty">' +
+            'خطا در دریافت سفارش‌ها.' +
+            '</div>';
+        }
+      }
+
+
+      function supplierOrderCard(
+        order
+      ) {
+
+        return `
+          <div
+            class="admin-card"
+            style="
+              margin-bottom:18px
+            "
+          >
+
+            <strong>
+              سفارش #${Number(
+                order.order_id
+              )}
+            </strong>
+
+            <span>
+              مشتری:
+              ${escapeClientHTML(
+                order.customer_name
+              )}
+            </span>
+
+            <span>
+              تلفن:
+              ${escapeClientHTML(
+                order.customer_phone
+              )}
+            </span>
+
+            <span>
+              آدرس:
+              ${escapeClientHTML(
+                order.address
+              )}
+            </span>
+
+            <span>
+              محصولات:
+              ${escapeClientHTML(
+                order.items ||
+                "اطلاعات محصول"
+              )}
+            </span>
+
+            <span>
+              مبلغ کل سفارش:
+              ${formatClientPrice(
+                order.total
+              )}
+            </span>
+
+            <span>
+              وضعیت:
+              ${escapeClientHTML(
+                order.status
+              )}
+            </span>
+
+            <span>
+              وضعیت ارسال:
+              ${escapeClientHTML(
+                order.shipping_status
+              )}
+            </span>
+
+            ${
+              order.tracking_code
+                ? `
+                  <span>
+                    کد رهگیری فعلی:
+                    <strong>
+                      ${escapeClientHTML(
+                        order.tracking_code
+                      )}
+                    </strong>
+                  </span>
+                `
+                : ""
+            }
+
+            <label
+              style="
+                margin-top:15px
+              "
+            >
+              وضعیت سفارش
+            </label>
+
+            <select
+              id="supplier-status-${Number(
+                order.id
+              )}"
+            >
+
+              <option
+                value="جدید"
+                ${
+                  order.status === "جدید"
+                    ? "selected"
+                    : ""
+                }
+              >
+                جدید
+              </option>
+
+              <option
+                value="تأیید شد"
+                ${
+                  order.status === "تأیید شد"
+                    ? "selected"
+                    : ""
+                }
+              >
+                تأیید شد
+              </option>
+
+              <option
+                value="لغو شد"
+                ${
+                  order.status === "لغو شد"
+                    ? "selected"
+                    : ""
+                }
+              >
+                لغو شد
+              </option>
+
+            </select>
+
+            <label
+              style="
+                margin-top:10px
+              "
+            >
+              وضعیت ارسال
+            </label>
+
+            <select
+              id="supplier-shipping-${Number(
+                order.id
+              )}"
+            >
+
+              <option
+                value="در انتظار ارسال"
+                ${
+                  order.shipping_status ===
+                  "در انتظار ارسال"
+                    ? "selected"
+                    : ""
+                }
+              >
+                در انتظار ارسال
+              </option>
+
+              <option
+                value="آماده ارسال"
+                ${
+                  order.shipping_status ===
+                  "آماده ارسال"
+                    ? "selected"
+                    : ""
+                }
+              >
+                آماده ارسال
+              </option>
+
+              <option
+                value="ارسال شد"
+                ${
+                  order.shipping_status ===
+                  "ارسال شد"
+                    ? "selected"
+                    : ""
+                }
+              >
+                ارسال شد
+              </option>
+
+              <option
+                value="تحویل شد"
+                ${
+                  order.shipping_status ===
+                  "تحویل شد"
+                    ? "selected"
+                    : ""
+                }
+              >
+                تحویل شد
+              </option>
+
+            </select>
+
+            <label
+              style="
+                margin-top:10px
+              "
+            >
+              کد رهگیری
+            </label>
+
+            <input
+              id="supplier-tracking-${Number(
+                order.id
+              )}"
+              value="${escapeAttr(
+                order.tracking_code ||
+                ""
+              )}"
+              placeholder="در صورت ارسال، کد رهگیری را وارد کنید"
+            >
+
+            <label
+              style="
+                margin-top:10px
+              "
+            >
+              توضیحات برای مدیر
+            </label>
+
+            <input
+              id="supplier-note-${Number(
+                order.id
+              )}"
+              value="${escapeAttr(
+                order.supplier_note ||
+                ""
+              )}"
+              placeholder="توضیح اختیاری"
+            >
+
+            <button
+              class="btn orange"
+              style="
+                margin-top:15px
+              "
+              onclick="
+                updateSupplierOrder(
+                  ${Number(order.id)}
+                )
+              "
+            >
+              ذخیره وضعیت سفارش
+            </button>
+
+          </div>
+        `;
+      }
+
+
+      async function updateSupplierOrder(
+        supplierOrderId
+      ) {
+
+        const session =
+          getSupplierSession();
+
+        if (!session) {
+
+          alert(
+            "ابتدا وارد پنل شوید."
+          );
+
+          return;
+        }
+
+        const status =
+          document
+            .getElementById(
+              "supplier-status-" +
+              supplierOrderId
+            )
+            .value;
+
+        const shippingStatus =
+          document
+            .getElementById(
+              "supplier-shipping-" +
+              supplierOrderId
+            )
+            .value;
+
+        const trackingCode =
+          document
+            .getElementById(
+              "supplier-tracking-" +
+              supplierOrderId
+            )
+            .value
+            .trim();
+
+        const note =
+          document
+            .getElementById(
+              "supplier-note-" +
+              supplierOrderId
+            )
+            .value
+            .trim();
+
+        try {
+
+          const response =
+            await fetch(
+              "/api/supplier/orders/status",
+              {
+                method:"PUT",
+
+                headers:{
+                  "content-type":
+                    "application/json",
+
+                  "X-Supplier-ID":
+                    String(
+                      session.id
+                    ),
+
+                  "X-Supplier-Code":
+                    session.access_code
+                },
+
+                body:
+                  JSON.stringify({
+
+                    supplier_order_id:
+                      supplierOrderId,
+
+                    status:
+                      status,
+
+                    shipping_status:
+                      shippingStatus,
+
+                    tracking_code:
+                      trackingCode,
+
+                    supplier_note:
+                      note
+
+                  })
+              }
+            );
+
+          const result =
+            await response.json();
+
+          if (!result.ok) {
+
+            alert(
+              result.error ||
+              "ذخیره انجام نشد."
+            );
+
+            return;
+          }
+
+          alert(
+            "وضعیت سفارش با موفقیت ذخیره شد."
+          );
+
+          loadSupplierPanel();
+
+        } catch(error) {
+
+          console.error(error);
+
+          alert(
+            "خطا در ذخیره سفارش."
+          );
+
+        }
+      }
+
+
+      loadSupplierPanel();
+
+    </script>
     `
   );
 }
@@ -2384,9 +4174,11 @@ function cartPage() {
     <section class="cart-box">
 
       <div id="cart-items">
+
         <div class="empty">
           سبد خرید شما خالی است.
         </div>
+
       </div>
 
       <div class="cart-total">
@@ -2430,6 +4222,7 @@ function cartPage() {
 ========================================================= */
 
 async function adminPage(env) {
+
   const productCount =
     await env.DB.prepare(`
       SELECT COUNT(*) AS count
@@ -2498,21 +4291,25 @@ async function adminPage(env) {
   const supplierOptions =
     suppliers.length
       ? suppliers
-          .map(s => `
-            <option
-              value="${Number(s.id)}"
-            >
-              ${escapeHTML(s.name)}
+          .map(
+            s => `
+              <option
+                value="${Number(s.id)}"
+              >
+                ${escapeHTML(
+                  s.name
+                )}
 
-              ${
-                Number(
-                  s.direct_shipping
-                ) === 1
-                  ? " — ارسال مستقیم"
-                  : " — ارسال مستقیم تأیید نشده"
-              }
-            </option>
-          `)
+                ${
+                  Number(
+                    s.direct_shipping
+                  ) === 1
+                    ? " — ارسال مستقیم"
+                    : " — ارسال مستقیم تأیید نشده"
+                }
+              </option>
+            `
+          )
           .join("")
       : `
         <option value="">
@@ -2523,58 +4320,68 @@ async function adminPage(env) {
   const productRows =
     productsList.length
       ? productsList
-          .map(p => `
-            <div
-              class="admin-card"
-              style="grid-column:1/-1"
-            >
-
-              <strong>
-                ${escapeHTML(p.name)}
-              </strong>
-
-              <span>
-                قیمت فروش:
-                ${formatPrice(p.price)}
-              </span>
-
-              <span>
-                موجودی:
-                ${formatNumber(p.stock)}
-              </span>
-
-              <span>
-                فروشنده:
-                ${
-                  p.supplier_name
-                    ? escapeHTML(
-                        p.supplier_name
-                      )
-                    : "تعیین نشده"
-                }
-              </span>
-
-              <span>
-                وضعیت:
-                ${
-                  Number(p.active) === 1
-                    ? "فعال"
-                    : "غیرفعال"
-                }
-              </span>
-
-              <button
-                class="btn small primary"
-                style="margin-top:12px"
-                onclick="editProduct(
-                  ${Number(p.id)}
-                )"
+          .map(
+            p => `
+              <div
+                class="admin-card"
+                style="grid-column:1/-1"
               >
-                ویرایش محصول
-              </button>
 
-            </div>
-          `)
+                <strong>
+                  ${escapeHTML(
+                    p.name
+                  )}
+                </strong>
+
+                <span>
+                  قیمت فروش:
+                  ${formatPrice(
+                    p.price
+                  )}
+                </span>
+
+                <span>
+                  موجودی اعلام‌شده:
+                  ${formatNumber(
+                    p.stock
+                  )}
+                </span>
+
+                <span>
+                  فروشنده:
+                  ${
+                    p.supplier_name
+                      ? escapeHTML(
+                          p.supplier_name
+                        )
+                      : "تعیین نشده"
+                  }
+                </span>
+
+                <span>
+                  وضعیت:
+                  ${
+                    Number(
+                      p.active
+                    ) === 1
+                      ? "فعال"
+                      : "غیرفعال"
+                  }
+                </span>
+
+                <button
+                  class="btn small primary"
+                  style="margin-top:12px"
+                  onclick="editProduct(
+                    ${Number(p.id)}
+                  )"
+                >
+                  ویرایش محصول
+                </button>
+
+              </div>
+            `
+          )
           .join("")
       : `
         <div
@@ -2588,101 +4395,105 @@ async function adminPage(env) {
   const orderRows =
     ordersList.length
       ? ordersList
-          .map(o => `
-            <div
-              class="admin-card"
-              style="grid-column:1/-1"
-            >
-
-              <strong>
-                سفارش #${Number(o.id)}
-              </strong>
-
-              <span>
-                مشتری:
-                ${escapeHTML(
-                  o.customer_name
-                )}
-              </span>
-
-              <span>
-                تلفن:
-                ${escapeHTML(
-                  o.customer_phone
-                )}
-              </span>
-
-              <span>
-                مبلغ:
-                ${formatPrice(o.total)}
-              </span>
-
-              <span>
-                وضعیت:
-                ${escapeHTML(
-                  o.status
-                )}
-              </span>
-
-              <span>
-                وضعیت فروشنده:
-                ${escapeHTML(
-                  o.supplier_status
-                )}
-              </span>
-
-              <span>
-                ارسال:
-                ${escapeHTML(
-                  o.shipping_status
-                )}
-              </span>
-
-              <select
-                id="order-status-${Number(o.id)}"
-                style="
-                  width:100%;
-                  margin-top:12px;
-                  padding:10px;
-                  border:1px solid #cbd5e1;
-                  border-radius:10px
-                "
+          .map(
+            o => `
+              <div
+                class="admin-card"
+                style="grid-column:1/-1"
               >
 
-                <option value="در حال بررسی">
-                  در حال بررسی
-                </option>
+                <strong>
+                  سفارش #${Number(o.id)}
+                </strong>
 
-                <option value="تأیید شد">
-                  تأیید شد
-                </option>
+                <span>
+                  مشتری:
+                  ${escapeHTML(
+                    o.customer_name
+                  )}
+                </span>
 
-                <option value="لغو شد">
-                  لغو شد
-                </option>
+                <span>
+                  تلفن:
+                  ${escapeHTML(
+                    o.customer_phone
+                  )}
+                </span>
 
-                <option value="ارسال شد">
-                  ارسال شد
-                </option>
+                <span>
+                  مبلغ:
+                  ${formatPrice(
+                    o.total
+                  )}
+                </span>
 
-                <option value="تحویل شد">
-                  تحویل شد
-                </option>
+                <span>
+                  وضعیت:
+                  ${escapeHTML(
+                    o.status
+                  )}
+                </span>
 
-              </select>
+                <span>
+                  وضعیت فروشنده:
+                  ${escapeHTML(
+                    o.supplier_status
+                  )}
+                </span>
 
-              <button
-                class="btn small orange"
-                style="margin-top:10px"
-                onclick="updateOrderStatus(
-                  ${Number(o.id)}
-                )"
-              >
-                ذخیره وضعیت
-              </button>
+                <span>
+                  ارسال:
+                  ${escapeHTML(
+                    o.shipping_status
+                  )}
+                </span>
 
-            </div>
-          `)
+                <select
+                  id="order-status-${Number(o.id)}"
+                  style="
+                    width:100%;
+                    margin-top:12px;
+                    padding:10px;
+                    border:1px solid #cbd5e1;
+                    border-radius:10px
+                  "
+                >
+
+                  <option value="در حال بررسی">
+                    در حال بررسی
+                  </option>
+
+                  <option value="تأیید شد">
+                    تأیید شد
+                  </option>
+
+                  <option value="لغو شد">
+                    لغو شد
+                  </option>
+
+                  <option value="ارسال شد">
+                    ارسال شد
+                  </option>
+
+                  <option value="تحویل شد">
+                    تحویل شد
+                  </option>
+
+                </select>
+
+                <button
+                  class="btn small orange"
+                  style="margin-top:10px"
+                  onclick="updateOrderStatus(
+                    ${Number(o.id)}
+                  )"
+                >
+                  ذخیره وضعیت
+                </button>
+
+              </div>
+            `
+          )
           .join("")
       : `
         <div
@@ -2932,7 +4743,7 @@ async function adminPage(env) {
           >
 
           <label>
-            موجودی
+            موجودی اعلام‌شده توسط فروشنده
           </label>
 
           <input
@@ -3037,15 +4848,59 @@ async function adminPage(env) {
 
     </section>
 
+    <section class="section">
+
+      <div class="account-card">
+
+        <span class="eyebrow">
+          تأمین‌کننده
+        </span>
+
+        <h2>
+          ورود تأمین‌کننده
+        </h2>
+
+        <p>
+          آدرس پنل تأمین‌کننده:
+        </p>
+
+        <div
+          style="
+            background:#f1f5f9;
+            padding:14px;
+            border-radius:12px;
+            direction:ltr;
+            text-align:left
+          "
+        >
+          /supplier
+        </div>
+
+        <p
+          style="
+            color:#64748b;
+            font-size:13px;
+            margin-top:12px
+          "
+        >
+          بعد از ثبت فروشنده، شناسه و کد
+          دسترسی او نمایش داده می‌شود.
+          کد را فقط در اختیار همان
+          تأمین‌کننده قرار دهید.
+        </p>
+
+      </div>
+
+    </section>
+
     <script>
 
-      /*
-       * برای API ها رمز مدیریت را می‌گیریم.
-       */
       function adminPassword() {
+
         return prompt(
           "رمز مدیریت را وارد کنید:"
         ) || "";
+
       }
 
 
@@ -3053,6 +4908,7 @@ async function adminPage(env) {
         url,
         options
       ) {
+
         options =
           options || {};
 
@@ -3079,16 +4935,18 @@ async function adminPage(env) {
       async function createSupplierForm(
         event
       ) {
+
         event.preventDefault();
 
         const response =
           await adminFetch(
             "/api/admin/suppliers",
             {
-              method: "POST",
+              method:"POST",
 
               body:
                 JSON.stringify({
+
                   name:
                     document
                       .getElementById(
@@ -3126,7 +4984,8 @@ async function adminPage(env) {
                         .value
                     ),
 
-                  active: 1
+                  active:1
+
                 })
             }
           );
@@ -3135,16 +4994,24 @@ async function adminPage(env) {
           await response.json();
 
         if (!result.ok) {
+
           alert(
             result.error ||
-              "ثبت فروشنده انجام نشد."
+            "ثبت فروشنده انجام نشد."
           );
 
           return false;
         }
 
         alert(
-          "فروشنده با موفقیت ثبت شد."
+          "فروشنده با موفقیت ثبت شد.\n\n" +
+          "شناسه تأمین‌کننده: " +
+          result.supplier_id +
+          "\n\n" +
+          "کد دسترسی تأمین‌کننده:\n" +
+          result.access_code +
+          "\n\n" +
+          "این کد را ذخیره کنید و فقط در اختیار همان تأمین‌کننده قرار دهید."
         );
 
         location.reload();
@@ -3156,16 +5023,18 @@ async function adminPage(env) {
       async function createProductForm(
         event
       ) {
+
         event.preventDefault();
 
         const response =
           await adminFetch(
             "/api/admin/products",
             {
-              method: "POST",
+              method:"POST",
 
               body:
                 JSON.stringify({
+
                   name:
                     document
                       .getElementById(
@@ -3228,7 +5097,7 @@ async function adminPage(env) {
                           "product-supplier-price"
                         )
                         .value ||
-                        0
+                      0
                     ),
 
                   commission:
@@ -3238,10 +5107,11 @@ async function adminPage(env) {
                           "product-commission"
                         )
                         .value ||
-                        0
+                      0
                     ),
 
-                  active: 1
+                  active:1
+
                 })
             }
           );
@@ -3250,9 +5120,10 @@ async function adminPage(env) {
           await response.json();
 
         if (!result.ok) {
+
           alert(
             result.error ||
-              "ثبت محصول انجام نشد."
+            "ثبت محصول انجام نشد."
           );
 
           return false;
@@ -3271,6 +5142,7 @@ async function adminPage(env) {
       async function editProduct(
         id
       ) {
+
         const name =
           prompt(
             "نام جدید محصول:"
@@ -3291,7 +5163,7 @@ async function adminPage(env) {
 
         const stock =
           prompt(
-            "موجودی:"
+            "موجودی اعلام‌شده توسط فروشنده:"
           );
 
         if (stock === null) {
@@ -3311,10 +5183,11 @@ async function adminPage(env) {
           await adminFetch(
             "/api/admin/products",
             {
-              method: "PUT",
+              method:"PUT",
 
               body:
                 JSON.stringify({
+
                   id:
                     Number(id),
 
@@ -3349,6 +5222,7 @@ async function adminPage(env) {
 
                   active:
                     1
+
                 })
             }
           );
@@ -3357,9 +5231,10 @@ async function adminPage(env) {
           await response.json();
 
         if (!result.ok) {
+
           alert(
             result.error ||
-              "ویرایش انجام نشد."
+            "ویرایش انجام نشد."
           );
 
           return;
@@ -3376,11 +5251,12 @@ async function adminPage(env) {
       async function updateOrderStatus(
         id
       ) {
+
         const status =
           document
             .getElementById(
               "order-status-" +
-                id
+              id
             )
             .value;
 
@@ -3388,10 +5264,11 @@ async function adminPage(env) {
           await adminFetch(
             "/api/admin/orders/status",
             {
-              method: "PUT",
+              method:"PUT",
 
               body:
                 JSON.stringify({
+
                   id:
                     Number(id),
 
@@ -3412,6 +5289,7 @@ async function adminPage(env) {
                         "تحویل شد"
                         ? "تحویل شد"
                         : "در انتظار ارسال"
+
                 })
             }
           );
@@ -3420,9 +5298,10 @@ async function adminPage(env) {
           await response.json();
 
         if (!result.ok) {
+
           alert(
             result.error ||
-              "تغییر وضعیت انجام نشد."
+            "تغییر وضعیت انجام نشد."
           );
 
           return;
@@ -4335,6 +6214,10 @@ footer{
         🛒 سبد خرید
       </a>
 
+      <a href="/supplier">
+        پنل تأمین‌کننده
+      </a>
+
       <a href="/admin">
         مدیریت
       </a>
@@ -4398,7 +6281,9 @@ function getCart(){
 }
 
 
-function saveCart(cart){
+function saveCart(
+  cart
+){
 
   localStorage.setItem(
     "digimarixo_cart",
@@ -4431,6 +6316,7 @@ function addToCart(
   }else{
 
     cart.push({
+
       id:
         Number(id),
 
@@ -4442,11 +6328,14 @@ function addToCart(
 
       quantity:
         1
+
     });
 
   }
 
-  saveCart(cart);
+  saveCart(
+    cart
+  );
 
   renderCart();
 
@@ -4472,6 +6361,21 @@ function formatNumber(
 
   return number.toLocaleString(
     "fa-IR"
+  );
+
+}
+
+
+function formatClientPrice(
+  value
+){
+
+  return (
+    Number(value || 0)
+      .toLocaleString(
+        "fa-IR"
+      ) +
+    " تومان"
   );
 
 }
@@ -4523,18 +6427,26 @@ function renderCart(){
     ){
 
       const price =
-        Number(item.price);
+        Number(
+          item.price
+        );
 
       const quantity =
-        Number(item.quantity);
+        Number(
+          item.quantity
+        );
 
       const safePrice =
-        Number.isFinite(price)
+        Number.isFinite(
+          price
+        )
           ? price
           : 0;
 
       const safeQuantity =
-        Number.isFinite(quantity) &&
+        Number.isFinite(
+          quantity
+        ) &&
         quantity > 0
           ? quantity
           : 1;
@@ -4543,7 +6455,8 @@ function renderCart(){
         safePrice *
         safeQuantity;
 
-      total += line;
+      total +=
+        line;
 
       rows.push(
         '<div style="' +
@@ -4634,7 +6547,9 @@ function removeCartItem(
     1
   );
 
-  saveCart(cart);
+  saveCart(
+    cart
+  );
 
   renderCart();
 
@@ -4710,7 +6625,8 @@ async function checkoutCart(){
                 customerPhone,
 
               customer_email:
-                customerEmail || "",
+                customerEmail ||
+                "",
 
               address:
                 address,
@@ -4718,6 +6634,7 @@ async function checkoutCart(){
               items:
                 cart.map(
                   item => ({
+
                     product_id:
                       Number(
                         item.id
@@ -4728,6 +6645,7 @@ async function checkoutCart(){
                         item.quantity ||
                         1
                       )
+
                   })
                 )
 
@@ -4755,7 +6673,7 @@ async function checkoutCart(){
     renderCart();
 
     alert(
-      "سفارش با موفقیت ثبت شد. " +
+      "سفارش با موفقیت ثبت شد.\n" +
       "شماره سفارش: " +
       result.order_id
     );
@@ -4898,17 +6816,23 @@ function normalizePrice(
       );
 
   const number =
-    Number(normalized);
+    Number(
+      normalized
+    );
 
   if(
-    !Number.isFinite(number)
+    !Number.isFinite(
+      number
+    )
   ){
     return 0;
   }
 
   return Math.max(
     0,
-    Math.round(number)
+    Math.round(
+      number
+    )
   );
 
 }
@@ -4919,29 +6843,13 @@ function formatPrice(
 ){
 
   return (
-    normalizePrice(value)
-      .toLocaleString("fa-IR") +
+    normalizePrice(
+      value
+    )
+      .toLocaleString(
+        "fa-IR"
+      ) +
     " تومان"
-  );
-
-}
-
-
-function formatNumber(
-  value
-){
-
-  const number =
-    Number(value);
-
-  if(
-    !Number.isFinite(number)
-  ){
-    return "۰";
-  }
-
-  return number.toLocaleString(
-    "fa-IR"
   );
 
 }
@@ -4982,7 +6890,9 @@ function escapeAttr(
   value
 ){
 
-  return escapeHTML(value);
+  return escapeHTML(
+    value
+  );
 
 }
 
@@ -5028,6 +6938,8 @@ function safeError(
     );
   }
 
-  return String(error);
+  return String(
+    error
+  );
 
-          }
+      }
