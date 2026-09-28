@@ -21,9 +21,6 @@ export default {
     try {
       await initDB(env);
 
-      // -----------------------------
-      // HEALTH
-      // -----------------------------
       if (path === "/health") {
         return json({
           ok: true,
@@ -32,9 +29,6 @@ export default {
         });
       }
 
-      // -----------------------------
-      // PUBLIC API
-      // -----------------------------
       if (path === "/api/products" && method === "GET") {
         return json(await getProducts(env));
       }
@@ -48,9 +42,6 @@ export default {
         return json(await getSuppliers(env));
       }
 
-      // -----------------------------
-      // ORDERS
-      // -----------------------------
       if (path === "/api/orders" && method === "POST") {
         return json(await createOrder(request, env));
       }
@@ -63,12 +54,12 @@ export default {
         return json(await getOrders(env));
       }
 
-      // -----------------------------
-      // ADMIN API
-      // -----------------------------
       if (path === "/api/admin/suppliers" && method === "POST") {
         if (!isBasicAdmin(request, env)) {
-          return json({ ok: false, error: "Unauthorized" }, 401);
+          return json(
+            { ok: false, error: "Unauthorized" },
+            401
+          );
         }
 
         return json(await createSupplier(request, env));
@@ -76,7 +67,10 @@ export default {
 
       if (path === "/api/admin/products" && method === "POST") {
         if (!isBasicAdmin(request, env)) {
-          return json({ ok: false, error: "Unauthorized" }, 401);
+          return json(
+            { ok: false, error: "Unauthorized" },
+            401
+          );
         }
 
         return json(await createProduct(request, env));
@@ -84,23 +78,29 @@ export default {
 
       if (path === "/api/admin/products" && method === "PUT") {
         if (!isBasicAdmin(request, env)) {
-          return json({ ok: false, error: "Unauthorized" }, 401);
+          return json(
+            { ok: false, error: "Unauthorized" },
+            401
+          );
         }
 
         return json(await updateProduct(request, env));
       }
 
-      if (path === "/api/admin/orders/status" && method === "PUT") {
+      if (
+        path === "/api/admin/orders/status" &&
+        method === "PUT"
+      ) {
         if (!isBasicAdmin(request, env)) {
-          return json({ ok: false, error: "Unauthorized" }, 401);
+          return json(
+            { ok: false, error: "Unauthorized" },
+            401
+          );
         }
 
         return json(await updateOrderStatus(request, env));
       }
 
-      // -----------------------------
-      // ADMIN PAGE
-      // -----------------------------
       if (path === "/admin") {
         if (!isBasicAdmin(request, env)) {
           return basicAuthResponse();
@@ -109,16 +109,10 @@ export default {
         return html(await adminPage(env));
       }
 
-      // -----------------------------
-      // ACCOUNT
-      // -----------------------------
       if (path === "/account") {
         return html(accountPage());
       }
 
-      // -----------------------------
-      // PRODUCTS
-      // -----------------------------
       if (path === "/products") {
         const id = url.searchParams.get("id");
 
@@ -133,7 +127,9 @@ export default {
                 <section class="empty">
                   <h2>محصول پیدا نشد</h2>
                   <p>این محصول وجود ندارد یا غیرفعال شده است.</p>
-                  <a class="btn" href="/products">بازگشت به محصولات</a>
+                  <a class="btn" href="/products">
+                    بازگشت به محصولات
+                  </a>
                 </section>
                 `
               ),
@@ -152,16 +148,10 @@ export default {
         return html(await productsPage(env));
       }
 
-      // -----------------------------
-      // CART
-      // -----------------------------
       if (path === "/cart") {
         return html(cartPage());
       }
 
-      // -----------------------------
-      // HOME
-      // -----------------------------
       return html(await homePage(env));
 
     } catch (error) {
@@ -186,7 +176,8 @@ export default {
 // ============================================================
 
 function isBasicAdmin(request, env) {
-  const authorization = request.headers.get("Authorization");
+  const authorization =
+    request.headers.get("Authorization");
 
   if (!authorization) {
     return false;
@@ -206,8 +197,11 @@ function isBasicAdmin(request, env) {
       return false;
     }
 
-    const username = decoded.slice(0, separator);
-    const password = decoded.slice(separator + 1);
+    const username =
+      decoded.slice(0, separator);
+
+    const password =
+      decoded.slice(separator + 1);
 
     if (username !== ADMIN_USERNAME) {
       return false;
@@ -218,8 +212,13 @@ function isBasicAdmin(request, env) {
     }
 
     return password === env.ADMIN_PASSWORD;
+
   } catch (error) {
-    console.error("Admin auth error:", error);
+    console.error(
+      "Admin auth error:",
+      error
+    );
+
     return false;
   }
 }
@@ -378,7 +377,6 @@ async function initDB(env) {
     CREATE INDEX IF NOT EXISTS idx_supplier_orders_supplier
     ON supplier_orders(supplier_id)
     `
-
   ];
 
   for (const sql of statements) {
@@ -473,13 +471,15 @@ async function ensureColumn(
     return;
   }
 
-  const result = await env.DB
-    .prepare(`PRAGMA table_info(${table})`)
-    .all();
+  const result =
+    await env.DB
+      .prepare(`PRAGMA table_info(${table})`)
+      .all();
 
-  const exists = (result.results || []).some(
-    row => row.name === column
-  );
+  const exists =
+    (result.results || []).some(
+      row => row.name === column
+    );
 
   if (!exists) {
     await env.DB
@@ -496,18 +496,19 @@ async function ensureColumn(
 // ============================================================
 
 async function getProducts(env) {
-  const result = await env.DB
-    .prepare(`
-      SELECT
-        p.*,
-        s.name AS supplier_name
-      FROM products p
-      LEFT JOIN suppliers s
-        ON s.id = p.supplier_id
-      WHERE p.active = 1
-      ORDER BY p.created_at DESC
-    `)
-    .all();
+  const result =
+    await env.DB
+      .prepare(`
+        SELECT
+          p.*,
+          s.name AS supplier_name
+        FROM products p
+        LEFT JOIN suppliers s
+          ON s.id = p.supplier_id
+        WHERE p.active = 1
+        ORDER BY p.created_at DESC
+      `)
+      .all();
 
   return {
     ok: true,
@@ -517,21 +518,25 @@ async function getProducts(env) {
 
 
 async function getProduct(env, id) {
-  const result = await env.DB
-    .prepare(`
-      SELECT
-        p.*,
-        s.name AS supplier_name
-      FROM products p
-      LEFT JOIN suppliers s
-        ON s.id = p.supplier_id
-      WHERE p.id = ?
-      LIMIT 1
-    `)
-    .bind(id)
-    .all();
+  const result =
+    await env.DB
+      .prepare(`
+        SELECT
+          p.*,
+          s.name AS supplier_name
+        FROM products p
+        LEFT JOIN suppliers s
+          ON s.id = p.supplier_id
+        WHERE p.id = ?
+        LIMIT 1
+      `)
+      .bind(id)
+      .all();
 
-  if (!result.results || !result.results.length) {
+  if (
+    !result.results ||
+    !result.results.length
+  ) {
     return {
       ok: false,
       error: "Product not found"
@@ -548,30 +553,32 @@ async function getProduct(env, id) {
 async function createProduct(request, env) {
   const body = await request.json();
 
-  const name = String(body.name || "").trim();
-  const description = String(
-    body.description || ""
-  ).trim();
+  const name =
+    String(body.name || "").trim();
 
-  const price = Number(body.price || 0);
-  const image = String(body.image || "").trim();
-  const category = String(
-    body.category || ""
-  ).trim();
+  const description =
+    String(body.description || "").trim();
 
-  const stock = Number(body.stock || 0);
+  const price =
+    Number(body.price || 0);
 
-  const supplierId = String(
-    body.supplier_id || ""
-  ).trim();
+  const image =
+    String(body.image || "").trim();
 
-  const supplierPrice = Number(
-    body.supplier_price || 0
-  );
+  const category =
+    String(body.category || "").trim();
 
-  const commission = Number(
-    body.commission || 0
-  );
+  const stock =
+    Number(body.stock || 0);
+
+  const supplierId =
+    String(body.supplier_id || "").trim();
+
+  const supplierPrice =
+    Number(body.supplier_price || 0);
+
+  const commission =
+    Number(body.commission || 0);
 
   if (!name) {
     return {
@@ -580,14 +587,20 @@ async function createProduct(request, env) {
     };
   }
 
-  if (!Number.isFinite(price) || price < 0) {
+  if (
+    !Number.isFinite(price) ||
+    price < 0
+  ) {
     return {
       ok: false,
       error: "قیمت نامعتبر است."
     };
   }
 
-  if (!Number.isInteger(stock) || stock < 0) {
+  if (
+    !Number.isInteger(stock) ||
+    stock < 0
+  ) {
     return {
       ok: false,
       error: "موجودی نامعتبر است."
@@ -595,16 +608,17 @@ async function createProduct(request, env) {
   }
 
   if (supplierId) {
-    const supplier = await env.DB
-      .prepare(`
-        SELECT id
-        FROM suppliers
-        WHERE id = ?
-        AND active = 1
-        LIMIT 1
-      `)
-      .bind(supplierId)
-      .first();
+    const supplier =
+      await env.DB
+        .prepare(`
+          SELECT id
+          FROM suppliers
+          WHERE id = ?
+          AND active = 1
+          LIMIT 1
+        `)
+        .bind(supplierId)
+        .first();
 
     if (!supplier) {
       return {
@@ -614,7 +628,8 @@ async function createProduct(request, env) {
     }
   }
 
-  const id = crypto.randomUUID();
+  const id =
+    crypto.randomUUID();
 
   await env.DB
     .prepare(`
@@ -655,9 +670,11 @@ async function createProduct(request, env) {
 
 
 async function updateProduct(request, env) {
-  const body = await request.json();
+  const body =
+    await request.json();
 
-  const id = String(body.id || "").trim();
+  const id =
+    String(body.id || "").trim();
 
   if (!id) {
     return {
@@ -666,15 +683,16 @@ async function updateProduct(request, env) {
     };
   }
 
-  const existing = await env.DB
-    .prepare(`
-      SELECT id
-      FROM products
-      WHERE id = ?
-      LIMIT 1
-    `)
-    .bind(id)
-    .first();
+  const existing =
+    await env.DB
+      .prepare(`
+        SELECT id
+        FROM products
+        WHERE id = ?
+        LIMIT 1
+      `)
+      .bind(id)
+      .first();
 
   if (!existing) {
     return {
@@ -688,37 +706,51 @@ async function updateProduct(request, env) {
 
   if (body.name !== undefined) {
     fields.push("name = ?");
-    values.push(String(body.name).trim());
+    values.push(
+      String(body.name).trim()
+    );
   }
 
   if (body.description !== undefined) {
     fields.push("description = ?");
-    values.push(String(body.description));
+    values.push(
+      String(body.description)
+    );
   }
 
   if (body.price !== undefined) {
     fields.push("price = ?");
-    values.push(Number(body.price));
+    values.push(
+      Number(body.price)
+    );
   }
 
   if (body.image !== undefined) {
     fields.push("image = ?");
-    values.push(String(body.image));
+    values.push(
+      String(body.image)
+    );
   }
 
   if (body.category !== undefined) {
     fields.push("category = ?");
-    values.push(String(body.category));
+    values.push(
+      String(body.category)
+    );
   }
 
   if (body.stock !== undefined) {
     fields.push("stock = ?");
-    values.push(Number(body.stock));
+    values.push(
+      Number(body.stock)
+    );
   }
 
   if (body.active !== undefined) {
     fields.push("active = ?");
-    values.push(body.active ? 1 : 0);
+    values.push(
+      body.active ? 1 : 0
+    );
   }
 
   if (body.supplier_id !== undefined) {
@@ -732,12 +764,16 @@ async function updateProduct(request, env) {
 
   if (body.supplier_price !== undefined) {
     fields.push("supplier_price = ?");
-    values.push(Number(body.supplier_price));
+    values.push(
+      Number(body.supplier_price)
+    );
   }
 
   if (body.commission !== undefined) {
     fields.push("commission = ?");
-    values.push(Number(body.commission));
+    values.push(
+      Number(body.commission)
+    );
   }
 
   if (!fields.length) {
@@ -769,22 +805,23 @@ async function updateProduct(request, env) {
 // ============================================================
 
 async function getSuppliers(env) {
-  const result = await env.DB
-    .prepare(`
-      SELECT
-        id,
-        name,
-        phone,
-        email,
-        address,
-        direct_shipping,
-        active,
-        created_at,
-        login_email
-      FROM suppliers
-      ORDER BY created_at DESC
-    `)
-    .all();
+  const result =
+    await env.DB
+      .prepare(`
+        SELECT
+          id,
+          name,
+          phone,
+          email,
+          address,
+          direct_shipping,
+          active,
+          created_at,
+          login_email
+        FROM suppliers
+        ORDER BY created_at DESC
+      `)
+      .all();
 
   return {
     ok: true,
@@ -794,23 +831,31 @@ async function getSuppliers(env) {
 
 
 async function createSupplier(request, env) {
-  const body = await request.json();
+  const body =
+    await request.json();
 
-  const name = String(body.name || "").trim();
-  const phone = String(body.phone || "").trim();
-  const email = String(body.email || "").trim();
-  const address = String(body.address || "").trim();
+  const name =
+    String(body.name || "").trim();
 
-  const loginEmail = String(
-    body.login_email || ""
-  ).trim();
+  const phone =
+    String(body.phone || "").trim();
 
-  const password = String(
-    body.password || ""
-  );
+  const email =
+    String(body.email || "").trim();
+
+  const address =
+    String(body.address || "").trim();
+
+  const loginEmail =
+    String(body.login_email || "").trim();
+
+  const password =
+    String(body.password || "");
 
   const directShipping =
-    body.direct_shipping === false ? 0 : 1;
+    body.direct_shipping === false
+      ? 0
+      : 1;
 
   if (!name) {
     return {
@@ -819,12 +864,14 @@ async function createSupplier(request, env) {
     };
   }
 
-  const id = crypto.randomUUID();
+  const id =
+    crypto.randomUUID();
 
   let passwordHash = null;
 
   if (password) {
-    passwordHash = await hashPassword(password);
+    passwordHash =
+      await hashPassword(password);
   }
 
   await env.DB
@@ -866,27 +913,33 @@ async function createSupplier(request, env) {
 // ============================================================
 
 async function createOrder(request, env) {
-  const body = await request.json();
+  const body =
+    await request.json();
 
-  const customerName = String(
-    body.customer_name || ""
-  ).trim();
+  const customerName =
+    String(
+      body.customer_name || ""
+    ).trim();
 
-  const customerEmail = String(
-    body.customer_email || ""
-  ).trim();
+  const customerEmail =
+    String(
+      body.customer_email || ""
+    ).trim();
 
-  const customerPhone = String(
-    body.customer_phone || ""
-  ).trim();
+  const customerPhone =
+    String(
+      body.customer_phone || ""
+    ).trim();
 
-  const address = String(
-    body.address || ""
-  ).trim();
+  const address =
+    String(
+      body.address || ""
+    ).trim();
 
-  const items = Array.isArray(body.items)
-    ? body.items
-    : [];
+  const items =
+    Array.isArray(body.items)
+      ? body.items
+      : [];
 
   if (!customerName) {
     return {
@@ -922,43 +975,51 @@ async function createOrder(request, env) {
   let total = 0;
 
   for (const rawItem of items) {
-    const productId = String(
-      rawItem.product_id ||
-      rawItem.productId ||
-      ""
-    ).trim();
+    const productId =
+      String(
+        rawItem.product_id ||
+        rawItem.productId ||
+        ""
+      ).trim();
 
-    const quantity = Number(
-      rawItem.quantity || 0
-    );
+    const quantity =
+      Number(
+        rawItem.quantity || 0
+      );
 
-    if (!productId || !Number.isInteger(quantity) || quantity <= 0) {
+    if (
+      !productId ||
+      !Number.isInteger(quantity) ||
+      quantity <= 0
+    ) {
       return {
         ok: false,
         error: "اطلاعات محصول نامعتبر است."
       };
     }
 
-    const result = await env.DB
-      .prepare(`
-        SELECT
-          p.*,
-          s.name AS supplier_name,
-          s.active AS supplier_active,
-          s.direct_shipping AS supplier_direct_shipping
-        FROM products p
-        LEFT JOIN suppliers s
-          ON s.id = p.supplier_id
-        WHERE p.id = ?
-        LIMIT 1
-      `)
-      .bind(productId)
-      .all();
+    const result =
+      await env.DB
+        .prepare(`
+          SELECT
+            p.*,
+            s.name AS supplier_name,
+            s.active AS supplier_active,
+            s.direct_shipping AS supplier_direct_shipping
+          FROM products p
+          LEFT JOIN suppliers s
+            ON s.id = p.supplier_id
+          WHERE p.id = ?
+          LIMIT 1
+        `)
+        .bind(productId)
+        .all();
 
-    const product = result.results &&
+    const product =
+      result.results &&
       result.results.length
-      ? result.results[0]
-      : null;
+        ? result.results[0]
+        : null;
 
     if (!product) {
       return {
@@ -970,7 +1031,8 @@ async function createOrder(request, env) {
     if (!product.active) {
       return {
         ok: false,
-        error: `محصول ${product.name} فعال نیست.`
+        error:
+          `محصول ${product.name} فعال نیست.`
       };
     }
 
@@ -980,7 +1042,8 @@ async function createOrder(request, env) {
     ) {
       return {
         ok: false,
-        error: `موجودی محصول ${product.name} کافی نیست.`
+        error:
+          `موجودی محصول ${product.name} کافی نیست.`
       };
     }
 
@@ -996,38 +1059,48 @@ async function createOrder(request, env) {
       };
     }
 
-    const price = Number(product.price || 0);
+    const price =
+      Number(product.price || 0);
 
-    if (!Number.isFinite(price) || price <= 0) {
+    if (
+      !Number.isFinite(price) ||
+      price <= 0
+    ) {
       return {
         ok: false,
-        error: `قیمت محصول ${product.name} نامعتبر است.`
+        error:
+          `قیمت محصول ${product.name} نامعتبر است.`
       };
     }
 
-    const itemTotal = price * quantity;
+    const itemTotal =
+      price * quantity;
 
     total += itemTotal;
 
-    const supplierId = String(
-      product.supplier_id
-    );
+    const supplierId =
+      String(product.supplier_id);
 
     orderItems.push({
       productId,
       supplierId,
       quantity,
       price,
-      supplierPrice: Number(
-        product.supplier_price || 0
-      ),
-      commission: Number(
-        product.commission || 0
-      )
+      supplierPrice:
+        Number(
+          product.supplier_price || 0
+        ),
+      commission:
+        Number(
+          product.commission || 0
+        )
     });
 
     if (!supplierGroups.has(supplierId)) {
-      supplierGroups.set(supplierId, []);
+      supplierGroups.set(
+        supplierId,
+        []
+      );
     }
 
     supplierGroups
@@ -1038,7 +1111,8 @@ async function createOrder(request, env) {
       });
   }
 
-  const orderId = crypto.randomUUID();
+  const orderId =
+    crypto.randomUUID();
 
   await env.DB
     .prepare(`
@@ -1069,7 +1143,8 @@ async function createOrder(request, env) {
     .run();
 
   for (const item of orderItems) {
-    const itemId = crypto.randomUUID();
+    const itemId =
+      crypto.randomUUID();
 
     await env.DB
       .prepare(`
@@ -1113,7 +1188,8 @@ async function createOrder(request, env) {
   }
 
   for (const supplierId of supplierGroups.keys()) {
-    const supplierOrderId = crypto.randomUUID();
+    const supplierOrderId =
+      crypto.randomUUID();
 
     await env.DB
       .prepare(`
@@ -1140,57 +1216,63 @@ async function createOrder(request, env) {
     ok: true,
     order_id: orderId,
     total,
-    suppliers: supplierGroups.size
+    suppliers:
+      supplierGroups.size
   };
 }
 
 
 async function getOrders(env) {
-  const result = await env.DB
-    .prepare(`
-      SELECT
-        o.*,
-        s.name AS supplier_name
-      FROM orders o
-      LEFT JOIN suppliers s
-        ON s.id = o.supplier_id
-      ORDER BY o.created_at DESC
-    `)
-    .all();
+  const result =
+    await env.DB
+      .prepare(`
+        SELECT
+          o.*,
+          s.name AS supplier_name
+        FROM orders o
+        LEFT JOIN suppliers s
+          ON s.id = o.supplier_id
+        ORDER BY o.created_at DESC
+      `)
+      .all();
 
-  const orders = result.results || [];
+  const orders =
+    result.results || [];
 
   for (const order of orders) {
-    const itemsResult = await env.DB
-      .prepare(`
-        SELECT
-          oi.*,
-          p.name AS product_name,
-          s.name AS supplier_name
-        FROM order_items oi
-        LEFT JOIN products p
-          ON p.id = oi.product_id
-        LEFT JOIN suppliers s
-          ON s.id = oi.supplier_id
-        WHERE oi.order_id = ?
-      `)
-      .bind(order.id)
-      .all();
+    const itemsResult =
+      await env.DB
+        .prepare(`
+          SELECT
+            oi.*,
+            p.name AS product_name,
+            s.name AS supplier_name
+          FROM order_items oi
+          LEFT JOIN products p
+            ON p.id = oi.product_id
+          LEFT JOIN suppliers s
+            ON s.id = oi.supplier_id
+          WHERE oi.order_id = ?
+        `)
+        .bind(order.id)
+        .all();
 
-    order.items = itemsResult.results || [];
+    order.items =
+      itemsResult.results || [];
 
-    const supplierOrders = await env.DB
-      .prepare(`
-        SELECT
-          so.*,
-          s.name AS supplier_name
-        FROM supplier_orders so
-        LEFT JOIN suppliers s
-          ON s.id = so.supplier_id
-        WHERE so.order_id = ?
-      `)
-      .bind(order.id)
-      .all();
+    const supplierOrders =
+      await env.DB
+        .prepare(`
+          SELECT
+            so.*,
+            s.name AS supplier_name
+          FROM supplier_orders so
+          LEFT JOIN suppliers s
+            ON s.id = so.supplier_id
+          WHERE so.order_id = ?
+        `)
+        .bind(order.id)
+        .all();
 
     order.supplier_orders =
       supplierOrders.results || [];
@@ -1203,21 +1285,28 @@ async function getOrders(env) {
 }
 
 
-async function updateOrderStatus(request, env) {
-  const body = await request.json();
+async function updateOrderStatus(
+  request,
+  env
+) {
+  const body =
+    await request.json();
 
-  const orderId = String(
-    body.order_id || ""
-  ).trim();
+  const orderId =
+    String(
+      body.order_id || ""
+    ).trim();
 
-  const status = String(
-    body.status || ""
-  ).trim();
+  const status =
+    String(
+      body.status || ""
+    ).trim();
 
   if (!orderId || !status) {
     return {
       ok: false,
-      error: "شناسه سفارش و وضعیت الزامی است."
+      error:
+        "شناسه سفارش و وضعیت الزامی است."
     };
   }
 
@@ -1240,7 +1329,9 @@ async function updateOrderStatus(request, env) {
     .bind(
       status,
       status,
-      shippingStatusFromOrderStatus(status),
+      shippingStatusFromOrderStatus(
+        status
+      ),
       orderId
     )
     .run();
@@ -1256,7 +1347,9 @@ async function updateOrderStatus(request, env) {
     `)
     .bind(
       status,
-      shippingStatusFromOrderStatus(status),
+      shippingStatusFromOrderStatus(
+        status
+      ),
       orderId
     )
     .run();
@@ -1267,7 +1360,9 @@ async function updateOrderStatus(request, env) {
 }
 
 
-function shippingStatusFromOrderStatus(status) {
+function shippingStatusFromOrderStatus(
+  status
+) {
   if (status === "آماده ارسال") {
     return "آماده ارسال";
   }
@@ -1293,9 +1388,10 @@ function shippingStatusFromOrderStatus(status) {
 // ============================================================
 
 async function hashPassword(password) {
-  const salt = crypto.getRandomValues(
-    new Uint8Array(16)
-  );
+  const salt =
+    crypto.getRandomValues(
+      new Uint8Array(16)
+    );
 
   const keyMaterial =
     await crypto.subtle.importKey(
@@ -1324,7 +1420,9 @@ async function hashPassword(password) {
     "pbkdf2$100000$" +
     base64url(salt) +
     "$" +
-    base64url(new Uint8Array(bits))
+    base64url(
+      new Uint8Array(bits)
+    )
   );
 }
 
@@ -1348,20 +1446,26 @@ function base64url(bytes) {
 // ============================================================
 
 async function homePage(env) {
-  const result = await getProducts(env);
-  const products = result.products || [];
+  const result =
+    await getProducts(env);
 
-  const cards = products.length
-    ? products
-        .slice(0, 8)
-        .map(productCard)
-        .join("")
-    : `
-      <div class="empty">
-        <h3>هنوز محصولی ثبت نشده است</h3>
-        <p>محصولات به‌زودی در دیجی‌ماریکسو قرار می‌گیرند.</p>
-      </div>
-    `;
+  const products =
+    result.products || [];
+
+  const cards =
+    products.length
+      ? products
+          .slice(0, 8)
+          .map(productCard)
+          .join("")
+      : `
+        <div class="empty">
+          <h3>هنوز محصولی ثبت نشده است</h3>
+          <p>
+            محصولات به‌زودی در دیجی‌ماریکسو قرار می‌گیرند.
+          </p>
+        </div>
+      `;
 
   return layout(
     STORE_NAME,
@@ -1395,11 +1499,15 @@ async function homePage(env) {
     <section class="section">
       <div class="section-head">
         <div>
-          <span class="small-title">محصولات</span>
+          <span class="small-title">
+            محصولات
+          </span>
           <h2>محصولات جدید</h2>
         </div>
 
-        <a href="/products">مشاهده همه</a>
+        <a href="/products">
+          مشاهده همه
+        </a>
       </div>
 
       <div class="grid">
@@ -1411,19 +1519,25 @@ async function homePage(env) {
       <div class="feature">
         <div class="feature-icon">🛍️</div>
         <h3>تنوع محصولات</h3>
-        <p>محصولات تأمین‌کنندگان مختلف در یک فروشگاه.</p>
+        <p>
+          محصولات تأمین‌کنندگان مختلف در یک فروشگاه.
+        </p>
       </div>
 
       <div class="feature">
         <div class="feature-icon">🚚</div>
         <h3>ارسال مستقیم</h3>
-        <p>تأمین‌کننده سفارش را مستقیماً برای مشتری ارسال می‌کند.</p>
+        <p>
+          تأمین‌کننده سفارش را مستقیماً برای مشتری ارسال می‌کند.
+        </p>
       </div>
 
       <div class="feature">
         <div class="feature-icon">📦</div>
         <h3>مدیریت سفارش</h3>
-        <p>سفارش‌ها و وضعیت ارسال در سیستم مدیریت می‌شوند.</p>
+        <p>
+          سفارش‌ها و وضعیت ارسال در سیستم مدیریت می‌شوند.
+        </p>
       </div>
     </section>
     `
@@ -1436,25 +1550,39 @@ async function homePage(env) {
 // ============================================================
 
 async function productsPage(env) {
-  const result = await getProducts(env);
-  const products = result.products || [];
+  const result =
+    await getProducts(env);
 
-  const cards = products.length
-    ? products.map(productCard).join("")
-    : `
-      <div class="empty">
-        <h2>محصولی موجود نیست</h2>
-        <p>هنوز محصولی برای نمایش ثبت نشده است.</p>
-      </div>
-    `;
+  const products =
+    result.products || [];
+
+  const cards =
+    products.length
+      ? products
+          .map(productCard)
+          .join("")
+      : `
+        <div class="empty">
+          <h2>محصولی موجود نیست</h2>
+          <p>
+            هنوز محصولی برای نمایش ثبت نشده است.
+          </p>
+        </div>
+      `;
 
   return layout(
     "محصولات",
     `
     <section class="page-head">
-      <span class="small-title">DigiMarixo</span>
+      <span class="small-title">
+        DigiMarixo
+      </span>
+
       <h1>محصولات</h1>
-      <p>محصولات موجود در فروشگاه دیجی‌ماریکسو</p>
+
+      <p>
+        محصولات موجود در فروشگاه دیجی‌ماریکسو
+      </p>
     </section>
 
     <section class="section">
@@ -1468,20 +1596,22 @@ async function productsPage(env) {
 
 
 function productCard(product) {
-  const image = product.image
-    ? `
-      <img
-        src="${escapeHTML(product.image)}"
-        alt="${escapeHTML(product.name)}"
-      >
-    `
-    : `
-      <div class="product-placeholder">
-        🛍️
-      </div>
-    `;
+  const image =
+    product.image
+      ? `
+        <img
+          src="${escapeHTML(product.image)}"
+          alt="${escapeHTML(product.name)}"
+        >
+      `
+      : `
+        <div class="product-placeholder">
+          🛍️
+        </div>
+      `;
 
-  const price = Number(product.price || 0);
+  const price =
+    Number(product.price || 0);
 
   return `
     <article class="product-card">
@@ -1494,7 +1624,9 @@ function productCard(product) {
 
       <div class="product-body">
         <div class="category">
-          ${escapeHTML(product.category || "محصول")}
+          ${escapeHTML(
+            product.category || "محصول"
+          )}
         </div>
 
         <h3>
@@ -1502,7 +1634,10 @@ function productCard(product) {
         </h3>
 
         <p>
-          ${escapeHTML(product.description || "بدون توضیحات")}
+          ${escapeHTML(
+            product.description ||
+            "بدون توضیحات"
+          )}
         </p>
 
         <div class="product-bottom">
@@ -1532,20 +1667,22 @@ function productCard(product) {
 // ============================================================
 
 function productDetailPage(product) {
-  const price = Number(product.price || 0);
+  const price =
+    Number(product.price || 0);
 
-  const image = product.image
-    ? `
-      <img
-        src="${escapeHTML(product.image)}"
-        alt="${escapeHTML(product.name)}"
-      >
-    `
-    : `
-      <div class="product-placeholder large">
-        🛍️
-      </div>
-    `;
+  const image =
+    product.image
+      ? `
+        <img
+          src="${escapeHTML(product.image)}"
+          alt="${escapeHTML(product.name)}"
+        >
+      `
+      : `
+        <div class="product-placeholder large">
+          🛍️
+        </div>
+      `;
 
   return `
     <section class="detail">
@@ -1555,14 +1692,19 @@ function productDetailPage(product) {
 
       <div class="detail-content">
         <span class="category">
-          ${escapeHTML(product.category || "محصول")}
+          ${escapeHTML(
+            product.category || "محصول"
+          )}
         </span>
 
-        <h1>${escapeHTML(product.name)}</h1>
+        <h1>
+          ${escapeHTML(product.name)}
+        </h1>
 
         <p>
           ${escapeHTML(
-            product.description || "بدون توضیحات"
+            product.description ||
+            "بدون توضیحات"
           )}
         </p>
 
@@ -1602,13 +1744,22 @@ function cartPage() {
     "سبد خرید",
     `
     <section class="page-head">
-      <span class="small-title">DigiMarixo</span>
+      <span class="small-title">
+        DigiMarixo
+      </span>
+
       <h1>سبد خرید</h1>
-      <p>محصولات انتخاب‌شده را بررسی و سفارش ثبت کنید.</p>
+
+      <p>
+        محصولات انتخاب‌شده را بررسی و سفارش ثبت کنید.
+      </p>
     </section>
 
     <section class="cart-layout">
-      <div id="cartItems" class="cart-items"></div>
+      <div
+        id="cartItems"
+        class="cart-items"
+      ></div>
 
       <aside class="checkout-box">
         <h2>ثبت سفارش</h2>
@@ -1633,7 +1784,10 @@ function cartPage() {
           placeholder="آدرس کامل"
         ></textarea>
 
-        <div id="cartTotal" class="cart-total">
+        <div
+          id="cartTotal"
+          class="cart-total"
+        >
           ۰ تومان
         </div>
 
@@ -1663,15 +1817,21 @@ function accountPage() {
     "حساب کاربری",
     `
     <section class="page-head">
-      <span class="small-title">DigiMarixo</span>
+      <span class="small-title">
+        DigiMarixo
+      </span>
+
       <h1>حساب کاربری</h1>
+
       <p>
         سیستم حساب مشتری در حال توسعه است.
       </p>
     </section>
 
     <section class="account-box">
-      <div class="account-icon">👤</div>
+      <div class="account-icon">
+        👤
+      </div>
 
       <h2>حساب کاربری</h2>
 
@@ -1679,7 +1839,10 @@ function accountPage() {
         امکان ثبت سفارش بدون حساب کاربری نیز فعال است.
       </p>
 
-      <a class="btn primary" href="/products">
+      <a
+        class="btn primary"
+        href="/products"
+      >
         مشاهده محصولات
       </a>
     </section>
@@ -1693,44 +1856,69 @@ function accountPage() {
 // ============================================================
 
 async function adminPage(env) {
-  const productsResult = await getProductsForAdmin(env);
-  const suppliersResult = await getSuppliers(env);
-  const ordersResult = await getOrders(env);
+  const productsResult =
+    await getProductsForAdmin(env);
 
-  const products = productsResult.products || [];
-  const suppliers = suppliersResult.suppliers || [];
-  const orders = ordersResult.orders || [];
+  const suppliersResult =
+    await getSuppliers(env);
+
+  const ordersResult =
+    await getOrders(env);
+
+  const products =
+    productsResult.products || [];
+
+  const suppliers =
+    suppliersResult.suppliers || [];
+
+  const orders =
+    ordersResult.orders || [];
 
   return layout(
     "DigiMarixo Admin",
     `
     <section class="admin-header">
       <div>
-        <span class="small-title">DigiMarixo Admin</span>
-        <h1>مدیریت دیجی‌ماریکسو</h1>
+        <span class="small-title">
+          DigiMarixo Admin
+        </span>
+
+        <h1>
+          مدیریت دیجی‌ماریکسو
+        </h1>
+
         <p>
           مدیریت محصولات، تأمین‌کنندگان و سفارش‌ها
         </p>
       </div>
 
-      <a class="btn secondary" href="/">
+      <a
+        class="btn secondary"
+        href="/"
+      >
         مشاهده فروشگاه
       </a>
     </section>
 
     <section class="stats">
       <div class="stat">
-        <strong>${products.length}</strong>
+        <strong>
+          ${products.length}
+        </strong>
         <span>محصول</span>
       </div>
 
       <div class="stat">
-        <strong>${suppliers.length}</strong>
+        <strong>
+          ${suppliers.length}
+        </strong>
         <span>تأمین‌کننده</span>
       </div>
 
       <div class="stat">
-        <strong>${orders.length}</strong>
+        <strong>
+          ${orders.length}
+        </strong>
         <span>سفارش</span>
       </div>
     </section>
@@ -1738,7 +1926,9 @@ async function adminPage(env) {
     <section class="admin-section">
       <div class="section-head">
         <div>
-          <span class="small-title">Products</span>
+          <span class="small-title">
+            Products
+          </span>
           <h2>محصولات</h2>
         </div>
       </div>
@@ -1758,7 +1948,9 @@ async function adminPage(env) {
           <tbody>
             ${
               products.length
-                ? products.map(adminProductRow).join("")
+                ? products
+                    .map(adminProductRow)
+                    .join("")
                 : `
                   <tr>
                     <td colspan="5">
@@ -1775,7 +1967,10 @@ async function adminPage(env) {
     <section class="admin-section">
       <div class="section-head">
         <div>
-          <span class="small-title">Suppliers</span>
+          <span class="small-title">
+            Suppliers
+          </span>
+
           <h2>تأمین‌کنندگان</h2>
         </div>
       </div>
@@ -1795,7 +1990,9 @@ async function adminPage(env) {
           <tbody>
             ${
               suppliers.length
-                ? suppliers.map(adminSupplierRow).join("")
+                ? suppliers
+                    .map(adminSupplierRow)
+                    .join("")
                 : `
                   <tr>
                     <td colspan="5">
@@ -1812,7 +2009,10 @@ async function adminPage(env) {
     <section class="admin-section">
       <div class="section-head">
         <div>
-          <span class="small-title">Orders</span>
+          <span class="small-title">
+            Orders
+          </span>
+
           <h2>سفارش‌ها</h2>
         </div>
       </div>
@@ -1820,7 +2020,9 @@ async function adminPage(env) {
       <div class="orders-list">
         ${
           orders.length
-            ? orders.map(adminOrderCard).join("")
+            ? orders
+                .map(adminOrderCard)
+                .join("")
             : `
               <div class="empty">
                 سفارشی ثبت نشده است.
@@ -1835,17 +2037,18 @@ async function adminPage(env) {
 
 
 async function getProductsForAdmin(env) {
-  const result = await env.DB
-    .prepare(`
-      SELECT
-        p.*,
-        s.name AS supplier_name
-      FROM products p
-      LEFT JOIN suppliers s
-        ON s.id = p.supplier_id
-      ORDER BY p.created_at DESC
-    `)
-    .all();
+  const result =
+    await env.DB
+      .prepare(`
+        SELECT
+          p.*,
+          s.name AS supplier_name
+        FROM products p
+        LEFT JOIN suppliers s
+          ON s.id = p.supplier_id
+        ORDER BY p.created_at DESC
+      `)
+      .all();
 
   return {
     ok: true,
@@ -1864,7 +2067,9 @@ function adminProductRow(product) {
       </td>
 
       <td>
-        ${formatPrice(Number(product.price || 0))}
+        ${formatPrice(
+          Number(product.price || 0)
+        )}
       </td>
 
       <td>
@@ -1872,7 +2077,9 @@ function adminProductRow(product) {
       </td>
 
       <td>
-        ${escapeHTML(product.supplier_name || "-")}
+        ${escapeHTML(
+          product.supplier_name || "-"
+        )}
       </td>
 
       <td>
@@ -1897,15 +2104,21 @@ function adminSupplierRow(supplier) {
       </td>
 
       <td>
-        ${escapeHTML(supplier.phone || "-")}
+        ${escapeHTML(
+          supplier.phone || "-"
+        )}
       </td>
 
       <td>
-        ${escapeHTML(supplier.email || "-")}
+        ${escapeHTML(
+          supplier.email || "-"
+        )}
       </td>
 
       <td>
-        ${escapeHTML(supplier.login_email || "-")}
+        ${escapeHTML(
+          supplier.login_email || "-"
+        )}
       </td>
 
       <td>
@@ -1921,7 +2134,8 @@ function adminSupplierRow(supplier) {
 
 
 function adminOrderCard(order) {
-  const items = order.items || [];
+  const items =
+    order.items || [];
 
   return `
     <article class="order-card">
@@ -1937,7 +2151,9 @@ function adminOrderCard(order) {
         </div>
 
         <span class="status">
-          ${escapeHTML(order.status || "-")}
+          ${escapeHTML(
+            order.status || "-"
+          )}
         </span>
       </div>
 
@@ -1945,28 +2161,36 @@ function adminOrderCard(order) {
         <div>
           <strong>مشتری</strong>
           <span>
-            ${escapeHTML(order.customer_name)}
+            ${escapeHTML(
+              order.customer_name
+            )}
           </span>
         </div>
 
         <div>
           <strong>تلفن</strong>
           <span>
-            ${escapeHTML(order.customer_phone)}
+            ${escapeHTML(
+              order.customer_phone
+            )}
           </span>
         </div>
 
         <div>
           <strong>آدرس</strong>
           <span>
-            ${escapeHTML(order.address)}
+            ${escapeHTML(
+              order.address
+            )}
           </span>
         </div>
 
         <div>
           <strong>مبلغ</strong>
           <span>
-            ${formatPrice(Number(order.total || 0))}
+            ${formatPrice(
+              Number(order.total || 0)
+            )}
           </span>
         </div>
       </div>
@@ -1974,17 +2198,26 @@ function adminOrderCard(order) {
       <div class="order-items">
         ${
           items.length
-            ? items.map(item => `
-                <div class="order-item">
-                  <span>
-                    ${escapeHTML(item.product_name || item.product_id)}
-                  </span>
+            ? items
+                .map(
+                  item => `
+                    <div class="order-item">
+                      <span>
+                        ${escapeHTML(
+                          item.product_name ||
+                          item.product_id
+                        )}
+                      </span>
 
-                  <strong>
-                    × ${Number(item.quantity || 0)}
-                  </strong>
-                </div>
-              `).join("")
+                      <strong>
+                        × ${Number(
+                          item.quantity || 0
+                        )}
+                      </strong>
+                    </div>
+                  `
+                )
+                .join("")
             : "<p>آیتمی ثبت نشده است.</p>"
         }
       </div>
@@ -1997,11 +2230,17 @@ function adminOrderCard(order) {
 // LAYOUT
 // ============================================================
 
-function layout(title, content, status = 200) {
+function layout(
+  title,
+  content,
+  status = 200
+) {
   return `
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
+
 <head>
+
   <meta charset="UTF-8">
 
   <meta
@@ -2019,6 +2258,7 @@ function layout(title, content, status = 200) {
   </title>
 
   <style>
+
     :root {
       --navy: #0f172a;
       --blue: #2563eb;
@@ -2030,7 +2270,8 @@ function layout(title, content, status = 200) {
       --border: #e2e8f0;
       --success: #16a34a;
       --danger: #dc2626;
-      --shadow: 0 10px 30px rgba(15, 23, 42, .08);
+      --shadow:
+        0 10px 30px rgba(15, 23, 42, .08);
     }
 
     * {
@@ -2125,7 +2366,8 @@ function layout(title, content, status = 200) {
 
     .hero h1 {
       margin: 12px 0;
-      font-size: clamp(30px, 5vw, 50px);
+      font-size:
+        clamp(30px, 5vw, 50px);
       line-height: 1.3;
     }
 
@@ -2141,8 +2383,10 @@ function layout(title, content, status = 200) {
 
     .badge {
       display: inline-block;
-      background: rgba(255,255,255,.12);
-      border: 1px solid rgba(255,255,255,.2);
+      background:
+        rgba(255,255,255,.12);
+      border:
+        1px solid rgba(255,255,255,.2);
       border-radius: 999px;
       padding: 4px 12px;
       font-size: 13px;
@@ -2184,7 +2428,8 @@ function layout(title, content, status = 200) {
     }
 
     .hero .btn.secondary {
-      background: rgba(255,255,255,.14);
+      background:
+        rgba(255,255,255,.14);
     }
 
     .btn.small {
@@ -2227,13 +2472,17 @@ function layout(title, content, status = 200) {
     .grid {
       display: grid;
       grid-template-columns:
-        repeat(auto-fill, minmax(220px, 1fr));
+        repeat(
+          auto-fill,
+          minmax(220px, 1fr)
+        );
       gap: 20px;
     }
 
     .product-card {
       background: white;
-      border: 1px solid var(--border);
+      border:
+        1px solid var(--border);
       border-radius: 18px;
       overflow: hidden;
       box-shadow: var(--shadow);
@@ -2311,14 +2560,18 @@ function layout(title, content, status = 200) {
     .features {
       display: grid;
       grid-template-columns:
-        repeat(auto-fit, minmax(220px, 1fr));
+        repeat(
+          auto-fit,
+          minmax(220px, 1fr)
+        );
       gap: 20px;
       margin-top: 50px;
     }
 
     .feature {
       background: white;
-      border: 1px solid var(--border);
+      border:
+        1px solid var(--border);
       border-radius: 18px;
       padding: 25px;
       box-shadow: var(--shadow);
@@ -2391,7 +2644,8 @@ function layout(title, content, status = 200) {
 
     .empty {
       background: white;
-      border: 1px solid var(--border);
+      border:
+        1px solid var(--border);
       border-radius: 18px;
       padding: 35px;
       text-align: center;
@@ -2414,7 +2668,8 @@ function layout(title, content, status = 200) {
 
     .cart-item {
       background: white;
-      border: 1px solid var(--border);
+      border:
+        1px solid var(--border);
       border-radius: 16px;
       padding: 18px;
       display: flex;
@@ -2434,7 +2689,8 @@ function layout(title, content, status = 200) {
 
     .checkout-box {
       background: white;
-      border: 1px solid var(--border);
+      border:
+        1px solid var(--border);
       border-radius: 18px;
       padding: 20px;
       box-shadow: var(--shadow);
@@ -2444,7 +2700,8 @@ function layout(title, content, status = 200) {
     .checkout-box textarea {
       width: 100%;
       padding: 12px;
-      border: 1px solid var(--border);
+      border:
+        1px solid var(--border);
       border-radius: 10px;
       margin-bottom: 10px;
       outline: none;
@@ -2504,7 +2761,8 @@ function layout(title, content, status = 200) {
 
     .stat {
       background: white;
-      border: 1px solid var(--border);
+      border:
+        1px solid var(--border);
       border-radius: 18px;
       padding: 22px;
       text-align: center;
@@ -2523,7 +2781,8 @@ function layout(title, content, status = 200) {
 
     .admin-section {
       background: white;
-      border: 1px solid var(--border);
+      border:
+        1px solid var(--border);
       border-radius: 20px;
       padding: 22px;
       margin-top: 25px;
@@ -2542,7 +2801,8 @@ function layout(title, content, status = 200) {
     .admin-table th,
     .admin-table td {
       padding: 13px;
-      border-bottom: 1px solid var(--border);
+      border-bottom:
+        1px solid var(--border);
       text-align: right;
       white-space: nowrap;
     }
@@ -2578,7 +2838,8 @@ function layout(title, content, status = 200) {
     }
 
     .order-card {
-      border: 1px solid var(--border);
+      border:
+        1px solid var(--border);
       border-radius: 16px;
       padding: 18px;
     }
@@ -2598,7 +2859,10 @@ function layout(title, content, status = 200) {
     .order-info {
       display: grid;
       grid-template-columns:
-        repeat(auto-fit, minmax(180px, 1fr));
+        repeat(
+          auto-fit,
+          minmax(180px, 1fr)
+        );
       gap: 15px;
       margin-top: 18px;
     }
@@ -2621,7 +2885,8 @@ function layout(title, content, status = 200) {
 
     .order-items {
       margin-top: 18px;
-      border-top: 1px solid var(--border);
+      border-top:
+        1px solid var(--border);
       padding-top: 12px;
     }
 
@@ -2644,6 +2909,7 @@ function layout(title, content, status = 200) {
     }
 
     @media (max-width: 760px) {
+
       .nav {
         align-items: flex-start;
         flex-direction: column;
@@ -2675,27 +2941,50 @@ function layout(title, content, status = 200) {
         font-size: 30px;
       }
     }
+
   </style>
+
 </head>
 
 <body>
 
 <header>
+
   <nav class="nav">
 
-    <a class="logo" href="/">
+    <a
+      class="logo"
+      href="/"
+    >
       Digi<span>Marixo</span>
     </a>
 
     <div class="nav-links">
-      <a href="/">خانه</a>
-      <a href="/products">محصولات</a>
-      <a href="/account">حساب کاربری</a>
-      <a href="/cart">🛒 سبد خرید</a>
-      <a href="/admin">مدیریت</a>
+
+      <a href="/">
+        خانه
+      </a>
+
+      <a href="/products">
+        محصولات
+      </a>
+
+      <a href="/account">
+        حساب کاربری
+      </a>
+
+      <a href="/cart">
+        🛒 سبد خرید
+      </a>
+
+      <a href="/admin">
+        مدیریت
+      </a>
+
     </div>
 
   </nav>
+
 </header>
 
 <main>
@@ -2703,25 +2992,40 @@ function layout(title, content, status = 200) {
 </main>
 
 <footer>
-  <strong>DigiMarixo</strong>
+
+  <strong>
+    DigiMarixo
+  </strong>
+
   <br>
+
   فروشگاه دیجی‌ماریکسو
+
   <br>
+
   © ${new Date().getFullYear()}
+
 </footer>
 
+
 <script>
-  const CART_KEY = "digimarixo_cart";
+
+  const CART_KEY =
+    "digimarixo_cart";
+
 
   function getCart() {
     try {
       return JSON.parse(
-        localStorage.getItem(CART_KEY) || "[]"
+        localStorage.getItem(
+          CART_KEY
+        ) || "[]"
       );
     } catch (e) {
       return [];
     }
   }
+
 
   function saveCart(cart) {
     localStorage.setItem(
@@ -2730,12 +3034,19 @@ function layout(title, content, status = 200) {
     );
   }
 
-  function addToCart(id, name, price) {
-    const cart = getCart();
 
-    const existing = cart.find(
-      item => item.id === id
-    );
+  function addToCart(
+    id,
+    name,
+    price
+  ) {
+    const cart =
+      getCart();
+
+    const existing =
+      cart.find(
+        item => item.id === id
+      );
 
     if (existing) {
       existing.quantity += 1;
@@ -2750,32 +3061,46 @@ function layout(title, content, status = 200) {
 
     saveCart(cart);
 
-    alert("محصول به سبد خرید اضافه شد.");
+    alert(
+      "محصول به سبد خرید اضافه شد."
+    );
   }
 
+
   function removeCartItem(id) {
-    const cart = getCart().filter(
-      item => item.id !== id
-    );
+
+    const cart =
+      getCart().filter(
+        item => item.id !== id
+      );
 
     saveCart(cart);
+
     renderCart();
   }
 
+
   function renderCart() {
+
     const container =
-      document.getElementById("cartItems");
+      document.getElementById(
+        "cartItems"
+      );
 
     const totalElement =
-      document.getElementById("cartTotal");
+      document.getElementById(
+        "cartTotal"
+      );
 
     if (!container) {
       return;
     }
 
-    const cart = getCart();
+    const cart =
+      getCart();
 
     if (!cart.length) {
+
       container.innerHTML =
         '<div class="empty"><h3>سبد خرید خالی است</h3><p>محصولی برای سفارش انتخاب نشده است.</p><a class="btn" href="/products">مشاهده محصولات</a></div>';
 
@@ -2789,47 +3114,68 @@ function layout(title, content, status = 200) {
 
     let total = 0;
 
-    container.innerHTML = cart
-      .map(item => {
-        const itemTotal =
-          Number(item.price) *
-          Number(item.quantity);
+    container.innerHTML =
+      cart
+        .map(item => {
 
-        total += itemTotal;
+          const itemTotal =
+            Number(item.price) *
+            Number(item.quantity);
 
-        return (
-          '<div class="cart-item">' +
-            '<div>' +
-              '<strong>' +
-                escapeClient(item.name) +
-              '</strong>' +
+          total += itemTotal;
+
+          return (
+            '<div class="cart-item">' +
               '<div>' +
-                formatClientPrice(item.price) +
-                ' × ' +
-                item.quantity +
+                '<strong>' +
+                  escapeClient(
+                    item.name
+                  ) +
+                '</strong>' +
+
+                '<div>' +
+                  formatClientPrice(
+                    item.price
+                  ) +
+                  ' × ' +
+                  item.quantity +
+                '</div>' +
               '</div>' +
-            '</div>' +
-            '<button onclick="removeCartItem(\\'' +
-              escapeClient(item.id) +
-            '\\')">' +
-              'حذف' +
-            '</button>' +
-          '</div>'
-        );
-      })
-      .join("");
+
+              '<button onclick="removeCartItem(\\'' +
+                escapeClient(
+                  item.id
+                ) +
+              '\\')">' +
+                'حذف' +
+              '</button>' +
+
+            '</div>'
+          );
+
+        })
+        .join("");
 
     if (totalElement) {
+
       totalElement.textContent =
-        formatClientPrice(total);
+        formatClientPrice(
+          total
+        );
     }
   }
 
+
   async function checkoutCart() {
-    const cart = getCart();
+
+    const cart =
+      getCart();
 
     if (!cart.length) {
-      alert("سبد خرید خالی است.");
+      alert(
+        "سبد خرید خالی است."
+      );
+
       return;
     }
 
@@ -2853,50 +3199,74 @@ function layout(title, content, status = 200) {
         "customerAddress"
       ).value.trim();
 
-    if (!customerName ||
-        !customerPhone ||
-        !customerAddress) {
+    if (
+      !customerName ||
+      !customerPhone ||
+      !customerAddress
+    ) {
       alert(
         "نام، شماره تماس و آدرس الزامی است."
       );
+
       return;
     }
 
-    const items = cart.map(item => ({
-      product_id: item.id,
-      quantity: Number(item.quantity)
-    }));
+    const items =
+      cart.map(item => ({
+        product_id: item.id,
+        quantity:
+          Number(item.quantity)
+      }));
 
     try {
-      const response = await fetch(
-        "/api/orders",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json"
-          },
-          body: JSON.stringify({
-            customer_name: customerName,
-            customer_phone: customerPhone,
-            customer_email: customerEmail,
-            address: customerAddress,
-            items: items
-          })
-        }
-      );
 
-      const data = await response.json();
+      const response =
+        await fetch(
+          "/api/orders",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json"
+            },
+
+            body:
+              JSON.stringify({
+                customer_name:
+                  customerName,
+
+                customer_phone:
+                  customerPhone,
+
+                customer_email:
+                  customerEmail,
+
+                address:
+                  customerAddress,
+
+                items:
+                  items
+              })
+          }
+        );
+
+      const data =
+        await response.json();
 
       if (!data.ok) {
+
         alert(
           data.error ||
           "ثبت سفارش انجام نشد."
         );
+
         return;
       }
 
-      localStorage.removeItem(CART_KEY);
+      localStorage.removeItem(
+        CART_KEY
+      );
 
       alert(
         "سفارش با موفقیت ثبت شد. شماره سفارش: " +
@@ -2906,29 +3276,53 @@ function layout(title, content, status = 200) {
       location.href = "/";
 
     } catch (error) {
+
       alert(
         "خطا در ارتباط با سرور."
       );
     }
   }
 
+
   function escapeClient(value) {
+
     return String(value)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
+      .replace(
+        /&/g,
+        "&amp;"
+      )
+      .replace(
+        /</g,
+        "&lt;"
+      )
+      .replace(
+        />/g,
+        "&gt;"
+      )
+      .replace(
+        /"/g,
+        "&quot;"
+      )
+      .replace(
+        /'/g,
+        "&#039;"
+      );
   }
 
+
   function formatClientPrice(value) {
-    return Number(value || 0)
+
+    return Number(
+      value || 0
+    )
       .toLocaleString("fa-IR") +
       " تومان";
   }
+
 </script>
 
 </body>
+
 </html>
   `;
 }
@@ -2938,7 +3332,10 @@ function layout(title, content, status = 200) {
 // RESPONSE HELPERS
 // ============================================================
 
-function html(content, status = 200) {
+function html(
+  content,
+  status = 200
+) {
   return new Response(
     content,
     {
@@ -2946,6 +3343,7 @@ function html(content, status = 200) {
       headers: {
         "content-type":
           "text/html; charset=UTF-8",
+
         "cache-control":
           "no-store"
       }
@@ -2954,7 +3352,10 @@ function html(content, status = 200) {
 }
 
 
-function json(data, status = 200) {
+function json(
+  data,
+  status = 200
+) {
   return new Response(
     JSON.stringify(data),
     {
@@ -2962,6 +3363,7 @@ function json(data, status = 200) {
       headers: {
         "content-type":
           "application/json; charset=UTF-8",
+
         "cache-control":
           "no-store"
       }
@@ -2971,40 +3373,81 @@ function json(data, status = 200) {
 
 
 function formatPrice(value) {
-  return Number(value || 0)
+
+  return Number(
+    value || 0
+  )
     .toLocaleString("fa-IR") +
     " تومان";
 }
 
 
 function escapeHTML(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+
+  return String(
+    value ?? ""
+  )
+    .replace(
+      /&/g,
+      "&amp;"
+    )
+    .replace(
+      /</g,
+      "&lt;"
+    )
+    .replace(
+      />/g,
+      "&gt;"
+    )
+    .replace(
+      /"/g,
+      "&quot;"
+    )
+    .replace(
+      /'/g,
+      "&#039;"
+    );
 }
 
 
 function escapeJS(value) {
-  return String(value ?? "")
-    .replace(/\\/g, "\\\\")
-    .replace(/'/g, "\\'")
-    .replace(/\r/g, "\\r")
-    .replace(/\n/g, "\\n");
+
+  return String(
+    value ?? ""
+  )
+    .replace(
+      /\\/g,
+      "\\\\"
+    )
+    .replace(
+      /'/g,
+      "\\'"
+    )
+    .replace(
+      /\r/g,
+      "\\r"
+    )
+    .replace(
+      /\n/g,
+      "\\n"
+    );
 }
 
 
 function safeError(error) {
+
   if (!error) {
     return "Unknown error";
   }
 
-  if (typeof error === "string") {
+  if (
+    typeof error === "string"
+  ) {
     return error;
   }
 
-  return error.message ||
-    "Unknown error";
-          }
+  return (
+    error.message ||
+    "Unknown error"
+  );
+              }
